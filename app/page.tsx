@@ -24,7 +24,7 @@ export default function HomePage() {
         }
         buttons={[
           { href: "/sessions/new", text: "Create a session", variant: "default" },
-          { href: "#how", text: "Learn more", variant: "outline" },
+          { href: "/join", text: "Join by ID", variant: "outline" },
         ]}
         mockup={<HeroMockup />}
       />
@@ -46,7 +46,7 @@ export default function HomePage() {
         title="Provision a session and take a role"
         buttons={[
           { href: "/sessions/new", text: "Create a session", variant: "default" },
-          { href: "#how", text: "Learn more", variant: "outline" },
+          { href: "/join", text: "Join by ID", variant: "outline" },
         ]}
       />
 

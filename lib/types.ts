@@ -10,11 +10,20 @@ export interface SeatSummary {
   occupant: { kind: OccupantKind; id?: string };
 }
 
+// The deployment parameters a session was provisioned with, echoed back for display.
+export interface SessionConfig {
+  asset: string;
+  coverAmount: string;
+  paymentInterval: number;
+  scenario: string;
+}
+
 export interface SessionSummary {
   setupId: string;
   network: string;
   seats: SeatSummary[];
   openSeats: string[];
+  config: SessionConfig;
 }
 
 export interface LoanState {
