@@ -1,77 +1,84 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, Loader2, Circle } from "lucide-react";
+import { Check, Loader2, ExternalLink } from "lucide-react";
+import type { ProvisionStep } from "@/lib/engine-client";
+import { txUrl } from "@/lib/client";
 import { Card, CardContent } from "@/components/ui/card";
 
-// The deployment steps the engine performs when provisioning a session, in order. Shown as a live
-// checklist so the wait (the real engine takes ~90s on Devnet) is legible rather than a blank spinner.
-const STEPS = [
-  "Funding participant accounts",
-  "Issuing access credentials",
-  "Configuring the permissioned domain",
-  "Creating the single-asset vault",
-  "Depositing first-loss cover",
-  "Starting the bot pool",
-];
+// A readable label for each provisioning step action. Dynamic per-account steps (distribute-owner,
+// credential-create-issuer, trust-depositor, …) are matched by prefix so every step reads cleanly
+// without enumerating every account.
+function stepLabel(action: string): string {
+  const exact: Record<string, string> = {
+    "issuer-allow-clawback": "Enable issuer clawback",
+    "issuer-default-ripple": "Enable issuer rippling",
+    "domain-create": "Create permissioned domain",
+    "vault-create": "Create single-asset vault",
+    "broker-create": "Create loan broker",
+    "cover-deposit": "Deposit first-loss cover",
+  };
+  if (exact[action]) return exact[action];
+  if (action.startsWith("distribute-")) return `Distribute asset to ${action.slice("distribute-".length)}`;
+  if (action.startsWith("trust-")) return `Set trust line for ${action.slice("trust-".length)}`;
+  if (action.startsWith("credential-create-")) return `Issue credential to ${action.slice("credential-create-".length)}`;
+  if (action.startsWith("credential-accept-")) return `Accept credential for ${action.slice("credential-accept-".length)}`;
+  // Fall back to a de-hyphenated, sentence-cased version of the action name.
+  const words = action.replace(/-/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
-// A provisioning progress screen. It advances through the steps on a timer for legibility; the actual
-// completion is driven by the caller (when createSession resolves), which unmounts this view. The
-// timer only paces the visual checklist — it never gates navigation.
-export function ProvisioningView({ label }: { label?: string }) {
-  const [active, setActive] = useState(0);
-
-  useEffect(() => {
-    // Pace the checklist across a plausible provisioning window; hold on the last step until the
-    // caller navigates away. Interval is derived from the step count so it reads smoothly.
-    const timer = setInterval(() => {
-      setActive((i) => Math.min(i + 1, STEPS.length - 1));
-    }, 1200);
-    return () => clearInterval(timer);
-  }, []);
-
+// A provisioning progress screen. It fills in with each step as the engine settles it — action label,
+// a green check, and a link to the settled transaction — so the environment is visibly built step by
+// step. The final step remains pending-looking only briefly before the caller navigates to the
+// session; a trailing spinner conveys that more may still be coming.
+export function ProvisioningView({ label, steps }: { label?: string; steps: ProvisionStep[] }) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Provisioning session</h1>
         <p className="text-sm text-muted-foreground">
           {label ? `Deploying “${label}” on the XRP Ledger Devnet.` : "Deploying on the XRP Ledger Devnet."}{" "}
-          This takes a moment — the accounts and objects are created on-ledger.
+          Each account and object is created on-ledger — the steps appear as they settle.
         </p>
       </div>
 
       <Card>
         <CardContent className="py-5">
-          <ol className="space-y-3">
-            {STEPS.map((step, i) => {
-              const done = i < active;
-              const current = i === active;
-              return (
-                <li key={step} className="flex items-center gap-3">
+          {steps.length === 0 ? (
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Starting provisioning…
+            </div>
+          ) : (
+            <ol className="space-y-2.5">
+              {steps.map((step, i) => (
+                <li key={`${step.action}-${i}`} className="flex items-center gap-3">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                    {done ? (
-                      <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    ) : current ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-foreground" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />
-                    )}
+                    <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   </span>
-                  <span
-                    className={
-                      done
-                        ? "text-sm text-muted-foreground"
-                        : current
-                          ? "text-sm font-medium"
-                          : "text-sm text-muted-foreground/50"
-                    }
-                  >
-                    {step}
+                  <span className="flex-1 text-sm">
+                    {stepLabel(step.action)}
+                    {step.skipped && <span className="ml-1.5 text-xs text-muted-foreground">· already present</span>}
                   </span>
+                  {step.txHash ? (
+                    <a
+                      href={txUrl(step.txHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    >
+                      {step.txHash.slice(0, 8)}…{step.txHash.slice(-4)}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{step.skipped ? "—" : step.result}</span>
+                  )}
                 </li>
-              );
-            })}
-          </ol>
+              ))}
+              <li className="flex items-center gap-3 pt-1 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> Working…
+              </li>
+            </ol>
+          )}
         </CardContent>
       </Card>
 

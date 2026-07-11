@@ -43,8 +43,20 @@ export interface ProvisionRequest {
   scenario?: string;
 }
 
+// One provisioning step reported while a session is being created: an on-ledger action, its result,
+// and — when it settled — its transaction hash. A skipped step is one whose object already existed.
+export interface ProvisionStep {
+  action: string;
+  result: string;
+  txHash?: string;
+  skipped: boolean;
+}
+
 export interface EngineClient {
-  createSession(req: ProvisionRequest): Promise<SessionSummary>;
+  // Creates a session. When onStep is provided and the backend supports streaming, it is called with
+  // each provisioning step as it settles; otherwise it may simply not be called and the summary is
+  // returned when provisioning completes.
+  createSession(req: ProvisionRequest, onStep?: (step: ProvisionStep) => void): Promise<SessionSummary>;
   getSession(setupId: string): Promise<SessionSummary>;
   getState(setupId: string): Promise<SessionState>;
   getLog(setupId: string): Promise<LogEntry[]>;

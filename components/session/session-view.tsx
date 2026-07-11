@@ -172,7 +172,7 @@ export function SessionView({ setupId }: { setupId: string }) {
             <div className="lg:col-span-2">
               <section className="space-y-3 lg:sticky lg:top-20">
                 <SectionLabel>Act</SectionLabel>
-                <RolePanel seat={mySeat} onAct={act} />
+                <RolePanel seat={mySeat} state={state} onAct={act} />
               </section>
             </div>
           </div>

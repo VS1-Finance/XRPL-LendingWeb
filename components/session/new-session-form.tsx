@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { engine } from "@/lib/client";
+import type { ProvisionStep } from "@/lib/engine-client";
 import { ProvisioningView } from "./provisioning-view";
 
 const SCENARIOS = [
@@ -22,6 +23,7 @@ const SCENARIOS = [
 export function NewSessionForm() {
   const router = useRouter();
   const [provisioning, setProvisioning] = useState(false);
+  const [steps, setSteps] = useState<ProvisionStep[]>([]);
   const [scenario, setScenario] = useState("mixed");
   const [form, setForm] = useState({
     label: "",
@@ -35,24 +37,29 @@ export function NewSessionForm() {
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  // Once provisioning starts, the form is replaced by the deployment progress view until the session
-  // is live and we navigate to it (or provisioning fails and we return to the form).
+  // Once provisioning starts, the form is replaced by the deployment progress view, which fills in
+  // with each step as the engine settles it, until the session is live and we navigate to it (or
+  // provisioning fails and we return to the form).
   if (provisioning) {
-    return <ProvisioningView label={form.label.trim() || undefined} />;
+    return <ProvisioningView label={form.label.trim() || undefined} steps={steps} />;
   }
 
   async function provision() {
     setProvisioning(true);
+    setSteps([]);
     try {
-      const session = await engine.createSession({
-        label: form.label.trim() || undefined,
-        asset: form.asset.trim() || undefined,
-        depositors: Number(form.depositors),
-        borrowers: Number(form.borrowers),
-        coverAmount: form.cover.trim() || undefined,
-        paymentInterval: Number(form.term),
-        scenario,
-      });
+      const session = await engine.createSession(
+        {
+          label: form.label.trim() || undefined,
+          asset: form.asset.trim() || undefined,
+          depositors: Number(form.depositors),
+          borrowers: Number(form.borrowers),
+          coverAmount: form.cover.trim() || undefined,
+          paymentInterval: Number(form.term),
+          scenario,
+        },
+        (step) => setSteps((prev) => [...prev, step]),
+      );
       toast.success("Session provisioned", {
         description: "Accounts, credentials, vault, and cover are live on Devnet.",
       });

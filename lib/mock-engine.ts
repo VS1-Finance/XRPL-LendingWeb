@@ -139,6 +139,21 @@ async function settle<T>(value: T): Promise<T> {
   return value;
 }
 
+// The provisioning steps the mock replays through the progress view, matching the shape of the real
+// engine's step actions so the streamed provisioning experience is the same in both modes.
+const MOCK_STEPS = [
+  "issuer-allow-clawback",
+  "issuer-default-ripple",
+  "distribute-owner",
+  "distribute-depositor",
+  "distribute-borrower",
+  "credential-create-issuer",
+  "domain-create",
+  "vault-create",
+  "broker-create",
+  "cover-deposit",
+];
+
 // Human-readable labels for the actions, used in the transaction log.
 const ACTION_LABEL: Record<string, string> = {
   deposit: "Deposit",
@@ -149,7 +164,7 @@ const ACTION_LABEL: Record<string, string> = {
   "set-domain": "Set accepted credential",
   originate: "Originate loan",
   repay: "Repay loan",
-  "miss-payment": "Missed payment",
+  "manage-loan": "Default loan",
 };
 
 function detailFor(action: string, params: Record<string, string> | undefined, asset: string): string | undefined {
@@ -230,9 +245,13 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
     case "set-domain":
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     case "originate": {
+      // The owner names the borrower seat and the principal; the loan is held under the borrower.
       if (amount <= 0) return { code: "temBAD_AMOUNT", ok: false };
       if (vault && num(vault.assetsAvailable) < amount) return { code: "tecINSUFFICIENT_FUNDS", ok: false };
-      const borrowerSeat = session.summary.seats.find((s) => s.role === "borrower");
+      const borrowerKey = req.params?.borrower;
+      const borrowerSeat = borrowerKey
+        ? session.summary.seats.find((s) => s.key === borrowerKey)
+        : session.summary.seats.find((s) => s.role === "borrower");
       const loan: LoanState = {
         loanId: hashFrom(next),
         borrower: borrowerSeat?.address ?? addressFrom(next),
@@ -246,9 +265,11 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
     case "repay": {
-      const loan =
-        session.state.loans.find((l) => !l.defaulted && l.paymentRemaining > 0 && l.borrower === seat.address) ??
-        session.state.loans.find((l) => !l.defaulted && l.paymentRemaining > 0);
+      // The borrower names the loan to repay.
+      const loanId = req.params?.loanId;
+      const loan = loanId
+        ? session.state.loans.find((l) => l.loanId === loanId && !l.defaulted && l.paymentRemaining > 0)
+        : session.state.loans.find((l) => !l.defaulted && l.paymentRemaining > 0 && l.borrower === seat.address);
       if (!loan) return { code: "tecNO_ENTRY", ok: false };
       const returned = num(loan.principalOutstanding) + amount;
       loan.paymentRemaining = Math.max(0, loan.paymentRemaining - 1);
@@ -257,10 +278,12 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
       if (vault) vault.assetsAvailable = String(num(vault.assetsAvailable) + returned);
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
-    case "miss-payment": {
-      const loan =
-        session.state.loans.find((l) => !l.defaulted && l.paymentRemaining > 0 && l.borrower === seat.address) ??
-        session.state.loans.find((l) => !l.defaulted && l.paymentRemaining > 0);
+    case "manage-loan": {
+      // The owner defaults a named delinquent loan; first-loss cover absorbs the outstanding balance.
+      const loanId = req.params?.loanId;
+      const loan = loanId
+        ? session.state.loans.find((l) => l.loanId === loanId && !l.defaulted)
+        : session.state.loans.find((l) => !l.defaulted && l.paymentRemaining > 0);
       if (!loan) return { code: "tecNO_ENTRY", ok: false };
       loan.defaulted = true;
       const loss = num(loan.totalOutstanding);
@@ -332,12 +355,21 @@ function prime(session: Session) {
 }
 
 export const mockEngine: EngineClient = {
-  async createSession(req) {
+  async createSession(req, onStep) {
     const seed = hashSeed(req);
     const id = `session-${idFrom(rng(seed))}-${idFrom(rng(seed + 1))}`;
     const session = provision(id, req, seedFor(id));
     prime(session);
     sessions.set(id, session);
+    // Replay the provisioning steps for the progress view when a step sink is provided, so the mock
+    // exercises the same streamed experience as the live engine.
+    if (onStep) {
+      const stepNext = rng(seedFor(id) ^ 0x1234abcd);
+      for (const s of MOCK_STEPS) {
+        await new Promise((r) => setTimeout(r, 220));
+        onStep({ action: s, result: "tesSUCCESS", txHash: hashFrom(stepNext), skipped: false });
+      }
+    }
     return settle(clone(session.summary));
   },
 

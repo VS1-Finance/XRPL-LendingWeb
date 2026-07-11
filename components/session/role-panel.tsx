@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { UserPlus, Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
-import type { SeatSummary } from "@/lib/types";
+import type { SeatSummary, SessionState } from "@/lib/types";
 import type { ActionResult } from "@/lib/engine-client";
-import { seatLabel } from "@/lib/roles";
+import { seatLabel, seatLabelForKey } from "@/lib/roles";
 import { txUrl } from "@/lib/client";
 import { shortId } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // How the action surface reports back to the caller. Returns the ledger result so the panel can show
 // success (with a tx link) or the exact rejection code inline — the enforcement the demo is about.
@@ -19,8 +20,17 @@ export type ActFn = (action: string, params?: Record<string, string>) => Promise
 
 // The action surface for the seat the participant currently holds. Each role exposes only the actions
 // that role owns; the owner seat presents two role surfaces (vault manager and originator) as tabs,
-// because on-ledger both are performed by the same account.
-export function RolePanel({ seat, onAct }: { seat: SeatSummary | undefined; onAct: ActFn }) {
+// because on-ledger both are performed by the same account. Live state is passed in so actions that
+// target a specific loan or borrower can offer a selector rather than a free-text field.
+export function RolePanel({
+  seat,
+  state,
+  onAct,
+}: {
+  seat: SeatSummary | undefined;
+  state: SessionState;
+  onAct: ActFn;
+}) {
   if (!seat) {
     return (
       <Card>
@@ -48,9 +58,9 @@ export function RolePanel({ seat, onAct }: { seat: SeatSummary | undefined; onAc
       </CardHeader>
       <CardContent>
         {seat.role === "depositor" && <DepositorActions onAct={onAct} />}
-        {seat.role === "borrower" && <BorrowerActions onAct={onAct} />}
+        {seat.role === "borrower" && <BorrowerActions seat={seat} state={state} onAct={onAct} />}
         {seat.role === "issuer" && <IssuerActions onAct={onAct} />}
-        {seat.role === "owner" && <OwnerActions onAct={onAct} />}
+        {seat.role === "owner" && <OwnerActions state={state} onAct={onAct} />}
       </CardContent>
     </Card>
   );
@@ -109,34 +119,99 @@ function ActionRow({
   );
 }
 
-// A full-width action with no input (e.g. trigger a missed payment).
-function ActionButton({
+// One option in a selector-backed action.
+interface Choice {
+  value: string;
+  label: string;
+}
+
+// An action that targets one of a set of choices (a specific loan, a specific borrower), optionally
+// with an amount. The selected choice and the amount are sent as named params. When there are no
+// choices, the action is shown disabled with an explanatory line rather than an empty selector.
+function SelectActionRow({
   label,
+  choices,
+  choiceParam,
+  choicePlaceholder,
+  amountParam,
+  amountPlaceholder,
+  cta,
   action,
   onAct,
-  variant = "outline",
+  variant = "default",
+  emptyHint,
 }: {
   label: string;
+  choices: Choice[];
+  choiceParam: string;
+  choicePlaceholder: string;
+  amountParam?: string;
+  amountPlaceholder?: string;
+  cta: string;
   action: string;
   onAct: ActFn;
   variant?: "default" | "outline";
+  emptyHint: string;
 }) {
+  const [choice, setChoice] = useState("");
+  const [amount, setAmount] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<ActionResult | null>(null);
 
+  const selected = choice || (choices.length === 1 ? choices[0].value : "");
+  const ready = Boolean(selected) && (!amountParam || amount.trim().length > 0);
+
   async function submit() {
+    if (!ready) return;
     setPending(true);
     setResult(null);
-    setResult(await onAct(action));
+    const params: Record<string, string> = { [choiceParam]: selected };
+    if (amountParam && amount.trim()) params[amountParam] = amount.trim();
+    const res = await onAct(action, params);
+    setResult(res);
     setPending(false);
+    if (res.ok) setAmount("");
+  }
+
+  if (choices.length === 0) {
+    return (
+      <div className="space-y-1.5">
+        <Label>{label}</Label>
+        <p className="text-xs text-muted-foreground">{emptyHint}</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-1.5">
-      <Button variant={variant} className="w-full" disabled={pending} onClick={submit}>
-        {pending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-        {label}
-      </Button>
+      <Label>{label}</Label>
+      <div className="flex items-center gap-2">
+        <Select value={selected} onValueChange={setChoice} disabled={pending}>
+          <SelectTrigger className="h-9 flex-1">
+            <SelectValue placeholder={choicePlaceholder} />
+          </SelectTrigger>
+          <SelectContent>
+            {choices.map((c) => (
+              <SelectItem key={c.value} value={c.value}>
+                {c.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {amountParam && (
+          <Input
+            className="h-9 w-28 shrink-0"
+            placeholder={amountPlaceholder}
+            value={amount}
+            disabled={pending}
+            onChange={(e) => setAmount(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && ready && !pending && submit()}
+          />
+        )}
+        <Button variant={variant} className="shrink-0" disabled={pending || !ready} onClick={submit}>
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : cta}
+        </Button>
+      </div>
       <ResultLine result={result} />
     </div>
   );
@@ -184,13 +259,49 @@ function DepositorActions({ onAct }: { onAct: ActFn }) {
   );
 }
 
-function BorrowerActions({ onAct }: { onAct: ActFn }) {
+// A short, readable label for a loan option — its shortened id and outstanding balance.
+function loanChoices(loans: SessionState["loans"]): Choice[] {
+  return loans.map((l) => ({
+    value: l.loanId,
+    label: `${shortId(l.loanId, 6, 4)} · ${l.totalOutstanding} out`,
+  }));
+}
+
+function borrowerChoices(seats: SessionState["seats"]): Choice[] {
+  return seats
+    .filter((s) => s.key.startsWith("borrower:"))
+    .map((s) => ({ value: s.key, label: seatLabelForKey(s.key, "borrower") }));
+}
+
+function BorrowerActions({
+  seat,
+  state,
+  onAct,
+}: {
+  seat: SeatSummary;
+  state: SessionState;
+  onAct: ActFn;
+}) {
+  // A borrower repays one of their own outstanding loans. Loans are held under the borrower's account,
+  // so only loans for this seat's address are offered.
+  const myLoans = state.loans.filter((l) => l.borrower === seat.address && !l.defaulted);
   return (
     <div className="space-y-4">
-      <ActionRow label="Repay" placeholder="Amount" cta="Repay" action="repay" onAct={onAct} />
-      <ActionButton label="Trigger a missed payment" action="miss-payment" onAct={onAct} />
+      <SelectActionRow
+        label="Repay a loan"
+        choices={loanChoices(myLoans)}
+        choiceParam="loanId"
+        choicePlaceholder="Select a loan"
+        amountParam="amount"
+        amountPlaceholder="Amount"
+        cta="Repay"
+        action="repay"
+        onAct={onAct}
+        emptyHint="No outstanding loans to repay."
+      />
       <p className="text-xs text-muted-foreground">
-        A missed payment defaults the loan and draws on first-loss cover.
+        Stop repaying to let a loan fall delinquent — the loan originator can then default it, drawing
+        on first-loss cover.
       </p>
     </div>
   );
@@ -205,7 +316,8 @@ function IssuerActions({ onAct }: { onAct: ActFn }) {
   );
 }
 
-function OwnerActions({ onAct }: { onAct: ActFn }) {
+function OwnerActions({ state, onAct }: { state: SessionState; onAct: ActFn }) {
+  const activeLoans = state.loans.filter((l) => !l.defaulted && l.paymentRemaining > 0);
   return (
     <Tabs defaultValue="vault">
       <TabsList className="grid w-full grid-cols-2">
@@ -217,10 +329,32 @@ function OwnerActions({ onAct }: { onAct: ActFn }) {
         <ActionRow label="Accepted credential type" placeholder="e.g. LENDPARTY" cta="Set domain" action="set-domain" param="domain" variant="outline" onAct={onAct} />
       </TabsContent>
       <TabsContent value="originator" className="mt-4 space-y-4">
-        <ActionRow label="Loan principal" placeholder="Amount" cta="Originate" action="originate" onAct={onAct} />
+        <SelectActionRow
+          label="Originate a loan"
+          choices={borrowerChoices(state.seats)}
+          choiceParam="borrower"
+          choicePlaceholder="Select a borrower"
+          amountParam="amount"
+          amountPlaceholder="Principal"
+          cta="Originate"
+          action="originate"
+          onAct={onAct}
+          emptyHint="No borrowers in this session."
+        />
         <p className="text-xs text-muted-foreground">
           Origination is bilateral — the borrower counter-signs the same transaction.
         </p>
+        <SelectActionRow
+          label="Default a delinquent loan"
+          choices={loanChoices(activeLoans)}
+          choiceParam="loanId"
+          choicePlaceholder="Select a loan"
+          cta="Default"
+          action="manage-loan"
+          variant="outline"
+          onAct={onAct}
+          emptyHint="No active loans to default."
+        />
       </TabsContent>
     </Tabs>
   );
