@@ -7,6 +7,20 @@ import type {
   ProvisionStep,
 } from "./engine-client";
 import type { SessionConfig, SessionState, SessionSummary } from "./types";
+import { actionLabel, actionDetail } from "./log-format";
+
+// The action-log row shape returned by GET /sessions/:id/log — raw, unformatted.
+interface EngineLogRow {
+  seq: number;
+  ts: number;
+  actor: string;
+  role: string;
+  by: "human" | "bot" | "system";
+  action: string;
+  code: string;
+  hash?: string;
+  params?: Record<string, string>;
+}
 
 // The live engine client: implements the same EngineClient interface the mock does, but over the
 // engine's HTTP API. Binding the app to the real engine is choosing this implementation in client.ts.
@@ -181,10 +195,22 @@ export const httpEngine: EngineClient = {
     return request<SessionState>(`/sessions/${encodeURIComponent(setupId)}/state`);
   },
 
-  async getLog(): Promise<LogEntry[]> {
-    // The engine has no transaction-log endpoint yet; the event history lives in the ingester. Until a
-    // log route is added, the Activity view is empty rather than wrong.
-    return [];
+  async getLog(setupId: string): Promise<LogEntry[]> {
+    // The engine stores raw action rows; the display label and human-readable detail are formatted
+    // here (the engine keeps the log lean and format-free).
+    const rows = await request<EngineLogRow[]>(`/sessions/${encodeURIComponent(setupId)}/log`);
+    return rows.map((r) => ({
+      seq: r.seq,
+      ts: r.ts,
+      actor: r.actor,
+      role: r.role,
+      by: r.by,
+      action: actionLabel(r.action),
+      code: r.code,
+      ok: r.code === "tesSUCCESS",
+      hash: r.hash,
+      detail: actionDetail(r.params),
+    }));
   },
 
   async claimSeat(setupId: string, seat: string, participant: string) {

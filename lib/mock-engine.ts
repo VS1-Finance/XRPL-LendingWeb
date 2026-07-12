@@ -6,6 +6,7 @@ import type {
   ProvisionRequest,
 } from "./engine-client";
 import type { LoanState, SeatSummary, SessionState, SessionSummary } from "./types";
+import { actionLabel, actionDetail } from "./log-format";
 
 // An in-memory implementation of the engine client. It is not the engine, but it behaves like it:
 // actions succeed or are rejected with real ledger result codes, the session state moves in response,
@@ -154,33 +155,6 @@ const MOCK_STEPS = [
   "cover-deposit",
 ];
 
-// Human-readable labels for the actions, used in the transaction log.
-const ACTION_LABEL: Record<string, string> = {
-  deposit: "Deposit",
-  withdraw: "Withdraw",
-  "issue-credential": "Issue credential",
-  "revoke-credential": "Revoke credential",
-  "set-max-assets": "Set maximum assets",
-  "set-domain": "Set accepted credential",
-  originate: "Originate loan",
-  repay: "Repay loan",
-  "manage-loan": "Default loan",
-};
-
-function detailFor(action: string, params: Record<string, string> | undefined, asset: string): string | undefined {
-  const amount = params?.amount;
-  if (amount && Number(amount) > 0) return `${Number(amount).toLocaleString()} ${asset}`;
-  const subject = params?.subject;
-  if (subject) return short(subject);
-  const domain = params?.domain;
-  if (domain) return domain;
-  return undefined;
-}
-
-function short(address: string): string {
-  return address.length > 12 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
-}
-
 // Records one attempt in the session log, whether it settled or was rejected.
 function record(
   session: Session,
@@ -197,11 +171,11 @@ function record(
     actor: seat.key,
     role: seat.role,
     by,
-    action: ACTION_LABEL[action] ?? action,
+    action: actionLabel(action),
     code: result.code,
     ok: result.ok,
     hash: result.hash,
-    detail: detailFor(action, params, "RLUSD"),
+    detail: actionDetail(params),
   });
 }
 
