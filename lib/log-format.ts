@@ -15,8 +15,25 @@ const ACTION_LABEL: Record<string, string> = {
   "manage-loan": "Default loan",
 };
 
+// Labels for the provisioning step actions that seed a session's log (recorded as system actions).
+const STEP_LABEL: Record<string, string> = {
+  "issuer-allow-clawback": "Enable issuer clawback",
+  "issuer-default-ripple": "Enable issuer rippling",
+  "domain-create": "Create permissioned domain",
+  "vault-create": "Create single-asset vault",
+  "broker-create": "Create loan broker",
+  "cover-deposit": "Deposit first-loss cover",
+};
+
 export function actionLabel(action: string): string {
-  return ACTION_LABEL[action] ?? action;
+  if (ACTION_LABEL[action]) return ACTION_LABEL[action];
+  if (STEP_LABEL[action]) return STEP_LABEL[action];
+  // Dynamic per-account provisioning steps.
+  if (action.startsWith("distribute-")) return `Distribute asset to ${action.slice("distribute-".length)}`;
+  if (action.startsWith("trust-")) return `Set trust line for ${action.slice("trust-".length)}`;
+  if (action.startsWith("credential-create-")) return `Issue credential to ${action.slice("credential-create-".length)}`;
+  if (action.startsWith("credential-accept-")) return `Accept credential for ${action.slice("credential-accept-".length)}`;
+  return action;
 }
 
 // A short, human-readable detail for a log row, derived from the raw params. Handles both the UI's

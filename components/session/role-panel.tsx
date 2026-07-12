@@ -25,10 +25,12 @@ export type ActFn = (action: string, params?: Record<string, string>) => Promise
 export function RolePanel({
   seat,
   state,
+  allSeats,
   onAct,
 }: {
   seat: SeatSummary | undefined;
   state: SessionState;
+  allSeats: SeatSummary[];
   onAct: ActFn;
 }) {
   if (!seat) {
@@ -59,7 +61,7 @@ export function RolePanel({
       <CardContent>
         {seat.role === "depositor" && <DepositorActions onAct={onAct} />}
         {seat.role === "borrower" && <BorrowerActions seat={seat} state={state} onAct={onAct} />}
-        {seat.role === "issuer" && <IssuerActions onAct={onAct} />}
+        {seat.role === "issuer" && <IssuerActions allSeats={allSeats} onAct={onAct} />}
         {seat.role === "owner" && <OwnerActions state={state} onAct={onAct} />}
       </CardContent>
     </Card>
@@ -307,11 +309,39 @@ function BorrowerActions({
   );
 }
 
-function IssuerActions({ onAct }: { onAct: ActFn }) {
+// The participants a credential can be issued to or revoked from: the pooled depositor and borrower
+// accounts. The option value is the on-ledger address (the credential subject); the label is readable.
+function participantChoices(allSeats: SeatSummary[]): Choice[] {
+  return allSeats
+    .filter((s) => s.role === "depositor" || s.role === "borrower")
+    .map((s) => ({ value: s.address, label: `${seatLabel(s)} · ${shortId(s.address)}` }));
+}
+
+function IssuerActions({ allSeats, onAct }: { allSeats: SeatSummary[]; onAct: ActFn }) {
+  const subjects = participantChoices(allSeats);
   return (
     <div className="space-y-4">
-      <ActionRow label="Issue credential" placeholder="Subject address" cta="Issue" action="issue-credential" param="subject" onAct={onAct} />
-      <ActionRow label="Revoke credential" placeholder="Subject address" cta="Revoke" action="revoke-credential" param="subject" variant="outline" onAct={onAct} />
+      <SelectActionRow
+        label="Issue credential"
+        choices={subjects}
+        choiceParam="subject"
+        choicePlaceholder="Select a participant"
+        cta="Issue"
+        action="issue-credential"
+        onAct={onAct}
+        emptyHint="No participants to credential."
+      />
+      <SelectActionRow
+        label="Revoke credential"
+        choices={subjects}
+        choiceParam="subject"
+        choicePlaceholder="Select a participant"
+        cta="Revoke"
+        action="revoke-credential"
+        variant="outline"
+        onAct={onAct}
+        emptyHint="No participants to revoke."
+      />
     </div>
   );
 }
