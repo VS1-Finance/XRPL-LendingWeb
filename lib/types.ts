@@ -33,6 +33,11 @@ export interface LoanState {
   totalOutstanding: string;
   paymentRemaining: number;
   defaulted: boolean;
+  // Whether the loan can be defaulted right now (overdue past its grace period), and if not yet, how
+  // many seconds until it can be. Optional so a state from an engine that predates the fields still
+  // typechecks and is treated as "not defaultable / unknown".
+  defaultableNow?: boolean;
+  defaultableInSeconds?: number | null;
 }
 
 export interface SessionState {
@@ -41,6 +46,9 @@ export interface SessionState {
   broker: { coverAvailable: string } | null;
   loans: LoanState[];
   seats: { key: string; occupant: OccupantKind; participant?: string }[];
+  // Credential status per participant account, so the UI can show the accept action only where a
+  // credential is pending acceptance.
+  credentials: { address: string; status: "accepted" | "pending" | "none" }[];
 }
 
 // The five participant roles as presented in the UI. Vault manager and loan originator are two role

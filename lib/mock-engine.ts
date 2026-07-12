@@ -20,9 +20,12 @@ interface Session {
   log: LogEntry[];
   seq: number;
   botsRunning: boolean;
-  // Subjects the issuer has credentialed. A deposit or borrow from an un-credentialed subject is
-  // rejected by the ledger with tecNO_AUTH — the enforcement the whole system exists to demonstrate.
+  // Subjects with an ACCEPTED credential — only these may transact; a deposit or borrow from anyone
+  // else is rejected with tecNO_AUTH, the enforcement the whole system demonstrates.
   credentialed: Set<string>;
+  // Subjects the issuer has issued a credential to that has not yet been accepted. Pending until the
+  // subject accepts, at which point they move to `credentialed`.
+  pending: Set<string>;
 }
 
 const sessions = new Map<string, Session>();
@@ -100,11 +103,12 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
     broker: { coverAvailable: cover },
     loans: [],
     seats: seats.map((s) => ({ key: s.key, occupant: s.occupant.kind, participant: s.occupant.id })),
+    credentials: [],
   };
 
   const credentialed = new Set<string>(seats.map((s) => s.address));
 
-  return { summary, state, log: [], seq: 0, botsRunning: false, credentialed };
+  return { summary, state, log: [], seq: 0, botsRunning: false, credentialed, pending: new Set<string>() };
 }
 
 function syncSeats(session: Session) {
@@ -205,13 +209,27 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
     case "issue-credential": {
+      // Issuing creates a pending credential — the subject must accept it before it grants access.
       const subject = req.params?.subject?.trim();
-      if (subject) session.credentialed.add(subject);
+      if (subject) {
+        session.credentialed.delete(subject);
+        session.pending.add(subject);
+      }
+      return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
+    }
+    case "accept-credential": {
+      // The acting seat accepts a pending credential, activating it.
+      if (!session.pending.has(seat.address)) return { code: "tecNO_ENTRY", ok: false };
+      session.pending.delete(seat.address);
+      session.credentialed.add(seat.address);
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
     case "revoke-credential": {
       const subject = req.params?.subject?.trim();
-      if (subject) session.credentialed.delete(subject);
+      if (subject) {
+        session.credentialed.delete(subject);
+        session.pending.delete(subject);
+      }
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
     case "set-max-assets":
@@ -233,6 +251,10 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
         totalOutstanding: String(Math.round(amount * 1.0114 * 100) / 100),
         paymentRemaining: 1,
         defaulted: false,
+        // A freshly originated loan is not yet delinquent — mirrors the ledger's grace window before a
+        // default is allowed. The mock uses a fixed window so the "defaultable in ~2m" hint appears.
+        defaultableNow: false,
+        defaultableInSeconds: 120,
       };
       session.state.loans.push(loan);
       if (vault) vault.assetsAvailable = String(num(vault.assetsAvailable) - amount);
@@ -315,8 +337,11 @@ function prime(session: Session) {
   const depositor = session.summary.seats.find((s) => s.role === "depositor");
 
   if (issuer && depositor) {
+    // Provisioning both issues and accepts each participant's credential, so the primed depositor is
+    // active from the start. Mirror both halves here.
     const p = { subject: depositor.address };
     record(session, issuer, "system", "issue-credential", apply(session, issuer, { seat: issuer.key, action: "issue-credential", params: p }, next), p);
+    record(session, depositor, "system", "accept-credential", apply(session, depositor, { seat: depositor.key, action: "accept-credential" }, next), undefined);
   }
   if (depositor) {
     const p = { amount: "90000" };
@@ -325,6 +350,13 @@ function prime(session: Session) {
   if (owner) {
     const p = { amount: "10000" };
     record(session, owner, "bot", "originate", apply(session, owner, { seat: owner.key, action: "originate", params: p }, next), p);
+    // The primed loan represents an already-running environment, so it is past its grace window and
+    // can be defaulted immediately — giving the owner something to default without waiting.
+    const primed = session.state.loans[session.state.loans.length - 1];
+    if (primed) {
+      primed.defaultableNow = true;
+      primed.defaultableInSeconds = null;
+    }
   }
 }
 
@@ -352,7 +384,21 @@ export const mockEngine: EngineClient = {
   },
 
   async getState(setupId) {
-    return clone(ensure(setupId).state);
+    const session = ensure(setupId);
+    // Derive per-participant credential status from the accepted/pending sets, so the UI can show the
+    // accept action only where a credential is pending.
+    const state = clone(session.state);
+    state.credentials = session.summary.seats
+      .filter((s) => s.role === "depositor" || s.role === "borrower")
+      .map((s) => ({
+        address: s.address,
+        status: session.credentialed.has(s.address)
+          ? ("accepted" as const)
+          : session.pending.has(s.address)
+            ? ("pending" as const)
+            : ("none" as const),
+      }));
+    return state;
   },
 
   async getLog(setupId) {

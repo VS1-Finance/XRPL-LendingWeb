@@ -4,6 +4,7 @@ import { ExternalLink, User, Bot, Settings } from "lucide-react";
 import type { LogEntry } from "@/lib/engine-client";
 import { txUrl } from "@/lib/client";
 import { seatLabelForKey } from "@/lib/roles";
+import { ledgerMessage } from "@/lib/ledger-codes";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -52,6 +53,7 @@ export function TransactionLog({ entries }: { entries: LogEntry[] }) {
                       <Badge
                         variant={e.ok ? "secondary" : "destructive"}
                         className="font-mono text-[11px] font-normal"
+                        title={ledgerMessage(e.code)}
                       >
                         {e.code}
                       </Badge>

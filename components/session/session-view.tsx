@@ -7,6 +7,7 @@ import type { LogEntry } from "@/lib/engine-client";
 import type { SessionState, SessionSummary } from "@/lib/types";
 import { engine } from "@/lib/client";
 import { useParticipant } from "@/lib/identity";
+import { ledgerMessage } from "@/lib/ledger-codes";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SessionHeader } from "./session-header";
 import { StatBand } from "./stat-band";
@@ -92,9 +93,9 @@ export function SessionView({ setupId }: { setupId: string }) {
     const result = await engine.act(setupId, participant, { seat: mySeat.key, action, params });
     await refresh();
     if (result.ok) {
-      toast.success("Settled on-ledger", { description: result.code });
+      toast.success("Settled on-ledger", { description: ledgerMessage(result.code) });
     } else {
-      toast.error("Rejected on-ledger", { description: result.code });
+      toast.error("Rejected on-ledger", { description: `${ledgerMessage(result.code)} (${result.code})` });
     }
     return result;
   };

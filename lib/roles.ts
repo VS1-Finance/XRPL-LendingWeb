@@ -19,8 +19,25 @@ export const UI_ROLES: UiRoleDef[] = [
 ];
 
 export function roleForSeat(seatRole: string): UiRoleDef | undefined {
-  // Owner seat is shown as vault manager (its two role surfaces are tabs within one panel).
+  // Owner seat is shown as vault manager (its two role surfaces share one panel).
   return UI_ROLES.find((r) => r.seatRole === seatRole);
+}
+
+// A one-line description of what a seat's role does, shown at the top of its action panel. The owner
+// seat performs two roles on one account, so it gets a combined description.
+export function roleDescription(seatRole: string): string {
+  switch (seatRole) {
+    case "issuer":
+      return "Grants and revokes the credentials that let accounts into the permissioned vault. Nothing settles for an account you have not credentialed.";
+    case "depositor":
+      return "Supplies liquidity to the vault and holds yield-bearing shares. Deposits earn a share of the interest borrowers pay.";
+    case "owner":
+      return "Owns the vault and the loan broker on one account — configuring the vault and permissioned domain, originating loans against vault liquidity, and defaulting delinquent ones.";
+    case "borrower":
+      return "Draws a loan against vault liquidity and repays it over its term. Missing payments lets the loan be defaulted, drawing on first-loss cover.";
+    default:
+      return "";
+  }
 }
 
 // The numeric index encoded in a seat key, e.g. "depositor:1" -> 1.

@@ -7,6 +7,7 @@ const ACTION_LABEL: Record<string, string> = {
   withdraw: "Withdraw",
   "issue-credential": "Issue credential",
   "revoke-credential": "Revoke credential",
+  "accept-credential": "Accept credential",
   "set-max-assets": "Set maximum assets",
   "set-vault": "Set maximum assets",
   "set-domain": "Set accepted credential",
