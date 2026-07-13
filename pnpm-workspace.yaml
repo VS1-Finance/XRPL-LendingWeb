@@ -1,3 +1,6 @@
-ignoredBuiltDependencies:
+# This is a single-package project, not a monorepo — the empty packages list keeps pnpm from treating
+# it as a workspace root. sharp's post-install build is approved so image optimisation works in a
+# non-interactive (Docker) install.
+packages: []
+onlyBuiltDependencies:
   - sharp
-  - unrs-resolver
