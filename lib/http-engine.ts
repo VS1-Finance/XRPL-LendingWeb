@@ -186,6 +186,7 @@ export const httpEngine: EngineClient = {
       liquidationRatePercent: req.liquidationRatePercent,
       managementFeePercent: req.managementFeePercent,
       debtMaximum: req.debtMaximum,
+      scenario: req.scenario,
     };
     if (onStep) {
       const summary = await streamCreate(body, onStep);

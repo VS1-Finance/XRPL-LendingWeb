@@ -31,7 +31,6 @@ export function NewSessionForm() {
     depositors: "2",
     borrowers: "1",
     cover: "20000",
-    term: "60",
     // Broker configuration (optional). Rates are percentages; blank keeps the server default.
     coverRate: "",
     liquidationRate: "",
@@ -60,7 +59,6 @@ export function NewSessionForm() {
           depositors: Number(form.depositors),
           borrowers: Number(form.borrowers),
           coverAmount: form.cover.trim() || undefined,
-          paymentInterval: Number(form.term),
           scenario,
           coverRatePercent: form.coverRate.trim() ? Number(form.coverRate) : undefined,
           liquidationRatePercent: form.liquidationRate.trim() ? Number(form.liquidationRate) : undefined,
@@ -133,14 +131,9 @@ export function NewSessionForm() {
           <CardDescription>Cover and loan timing.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="First-loss cover">
-              <Input value={form.cover} onChange={set("cover")} />
-            </Field>
-            <Field label="Payment interval (s)">
-              <Input type="number" min={60} value={form.term} onChange={set("term")} />
-            </Field>
-          </div>
+          <Field label="First-loss cover">
+            <Input value={form.cover} onChange={set("cover")} />
+          </Field>
         </CardContent>
       </Card>
 

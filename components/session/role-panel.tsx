@@ -184,6 +184,10 @@ function SelectActionRow({
   amountPlaceholder,
   amountByChoice,
   amountHint,
+  secondaryParam,
+  secondaryLabel,
+  secondaryPlaceholder,
+  secondaryDefault,
   cta,
   action,
   onAct,
@@ -200,6 +204,11 @@ function SelectActionRow({
   // balance), so the user pays the right amount instead of guessing.
   amountByChoice?: Record<string, string>;
   amountHint?: (value: string) => string | undefined;
+  // An optional secondary field sent alongside the choice and amount (e.g. a loan's payment interval).
+  secondaryParam?: string;
+  secondaryLabel?: string;
+  secondaryPlaceholder?: string;
+  secondaryDefault?: string;
   cta: string;
   action: string;
   onAct: ActFn;
@@ -208,6 +217,7 @@ function SelectActionRow({
 }) {
   const [choice, setChoice] = useState("");
   const [amount, setAmount] = useState("");
+  const [secondary, setSecondary] = useState(secondaryDefault ?? "");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<ActionResult | null>(null);
 
@@ -227,6 +237,7 @@ function SelectActionRow({
     setResult(null);
     const params: Record<string, string> = { [choiceParam]: selected };
     if (amountParam && amount.trim()) params[amountParam] = amount.trim();
+    if (secondaryParam && secondary.trim()) params[secondaryParam] = secondary.trim();
     const res = await onAct(action, params);
     setResult(res);
     setPending(false);
@@ -283,6 +294,21 @@ function SelectActionRow({
           {pending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
           {cta}
         </Button>
+      )}
+      {secondaryParam && (
+        <div className="flex items-center gap-2">
+          {secondaryLabel && (
+            <span className="shrink-0 text-xs text-muted-foreground">{secondaryLabel}</span>
+          )}
+          <Input
+            className="h-8 flex-1"
+            type="number"
+            placeholder={secondaryPlaceholder}
+            value={secondary}
+            disabled={pending}
+            onChange={(e) => setSecondary(e.target.value)}
+          />
+        </div>
       )}
       {amountHint && selected && amountHint(selected) && (
         <p className="text-xs text-muted-foreground">{amountHint(selected)}</p>
@@ -524,13 +550,18 @@ function OwnerActions({ state, onAct }: { state: SessionState; onAct: ActFn }) {
           choicePlaceholder="Select a borrower"
           amountParam="amount"
           amountPlaceholder="Principal"
+          secondaryParam="interval"
+          secondaryLabel="Payment interval (s)"
+          secondaryPlaceholder="60"
+          secondaryDefault="60"
           cta="Originate"
           action="originate"
           onAct={onAct}
           emptyHint="No borrowers in this session."
         />
         <p className="text-xs text-muted-foreground">
-          Origination is bilateral — the borrower counter-signs the same transaction.
+          Origination is bilateral — the borrower counter-signs the same transaction. Payment interval
+          sets how often the loan is due.
         </p>
         <ActionRow
           label="Deposit first-loss cover"
