@@ -162,3 +162,24 @@
     transform: scale(1);
   }
 }
+
+/* Explicit, unambiguous colours for the bot start/stop button — hardcoded so they never depend on
+   the utility palette or the button variant's own background. */
+.btn-bot-start {
+  background-color: #16a34a !important; /* green-600 */
+  color: #ffffff !important;
+  border: none !important;
+  background-image: none !important;
+}
+.btn-bot-start:hover {
+  background-color: #15803d !important; /* green-700 */
+}
+.btn-bot-stop {
+  background-color: #dc2626 !important; /* red-600 */
+  color: #ffffff !important;
+  border: none !important;
+  background-image: none !important;
+}
+.btn-bot-stop:hover {
+  background-color: #b91c1c !important; /* red-700 */
+}

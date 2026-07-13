@@ -532,6 +532,19 @@ function OwnerActions({ state, onAct }: { state: SessionState; onAct: ActFn }) {
         <p className="text-xs text-muted-foreground">
           Origination is bilateral — the borrower counter-signs the same transaction.
         </p>
+        <ActionRow
+          label="Deposit first-loss cover"
+          placeholder="Amount"
+          cta="Deposit cover"
+          action="deposit-cover"
+          variant="outline"
+          onAct={onAct}
+        />
+        <p className="text-xs text-muted-foreground">
+          Loans must stay backed by cover, so lending is capped by it. Current cover:{" "}
+          <span className="font-mono">{state.broker?.coverAvailable ?? "—"}</span>. Add more to raise
+          how much you can originate.
+        </p>
         <SelectActionRow
           label="Default a delinquent loan"
           choices={loanChoices(defaultable)}

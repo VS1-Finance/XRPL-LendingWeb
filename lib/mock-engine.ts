@@ -71,8 +71,9 @@ function clampInt(value: number | undefined, fallback: number, min: number, max:
 // broker cover. Bots occupy every seat until a human claims one.
 function provision(setupId: string, req: ProvisionRequest, seed: number): Session {
   const next = rng(seed);
-  const depositors = clampInt(req.depositors, 2, 1, 6);
-  const borrowers = clampInt(req.borrowers, 1, 1, 6);
+  // Match the engine's pool cap so mock and live behave the same.
+  const depositors = clampInt(req.depositors, 2, 1, 20);
+  const borrowers = clampInt(req.borrowers, 1, 1, 20);
 
   const seats: SeatSummary[] = [
     { key: "issuer:0", role: "issuer", address: addressFrom(next), occupant: { kind: "bot" } },
@@ -236,6 +237,14 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     case "set-domain":
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
+    case "deposit-cover": {
+      // Add first-loss cover to the broker, raising how much can be originated.
+      if (amount <= 0) return { code: "temBAD_AMOUNT", ok: false };
+      if (session.state.broker) {
+        session.state.broker.coverAvailable = String(num(session.state.broker.coverAvailable) + amount);
+      }
+      return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
+    }
     case "originate": {
       // The owner names the borrower seat and the principal; the loan is held under the borrower.
       if (amount <= 0) return { code: "temBAD_AMOUNT", ok: false };

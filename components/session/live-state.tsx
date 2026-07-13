@@ -1,4 +1,8 @@
-import { FileText, Layers } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { FileText, Layers, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 import type { SessionState } from "@/lib/types";
 import { shortId } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,9 +18,11 @@ export function LiveState({ state }: { state: SessionState }) {
           <span className="flex items-center gap-1.5 font-medium text-muted-foreground">
             <Layers className="h-3.5 w-3.5" /> Vault share token
           </span>
-          <span className="font-mono break-all text-muted-foreground">
-            {state.vault?.shareMptId ? shortId(state.vault.shareMptId, 10, 8) : "—"}
-          </span>
+          {state.vault?.shareMptId ? (
+            <CopyId value={state.vault.shareMptId} label="Vault share token" />
+          ) : (
+            <span className="font-mono text-muted-foreground">—</span>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -58,5 +64,34 @@ export function LiveState({ state }: { state: SessionState }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// A shortened id shown with a copy button that copies the full value. The whole chip is clickable so
+// the full token id is easy to grab even though it is displayed truncated.
+function CopyId({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      toast.success(`${label} copied`);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("Could not copy to clipboard");
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title={value}
+      className="inline-flex items-center gap-1 font-mono text-muted-foreground hover:text-foreground"
+    >
+      {shortId(value, 10, 8)}
+      {copied ? <Check className="h-3 w-3 shrink-0" /> : <Copy className="h-3 w-3 shrink-0" />}
+    </button>
   );
 }

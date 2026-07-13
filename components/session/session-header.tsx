@@ -52,7 +52,13 @@ export function SessionHeader({
           <Badge variant="outline" className="gap-1 text-muted-foreground">
             <User className="h-3 w-3" /> {participant}
           </Badge>
-          <Button variant={botsRunning ? "outline" : "default"} onClick={onToggleBots}>
+          {/* Green to start the pool, red to stop it — explicit classes defined in globals.css so the
+              colours never depend on the utility palette or the button variant's own background. */}
+          <Button
+            variant="secondary"
+            onClick={onToggleBots}
+            className={botsRunning ? "btn-bot-stop" : "btn-bot-start"}
+          >
             {botsRunning ? (
               <>
                 <Square className="mr-1.5 h-4 w-4" /> Stop bots

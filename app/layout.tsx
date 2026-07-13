@@ -36,7 +36,7 @@ export default function RootLayout({
               <span className="flex h-6 w-6 items-center justify-center rounded-md bg-foreground text-[11px] font-semibold text-background">
                 XL
               </span>
-              <span className="text-sm font-semibold tracking-tight">XRPL Permissioned Lending</span>
+              <span className="text-sm font-semibold tracking-tight">Permissioned Lending Reference App</span>
             </Link>
             <span className="text-xs font-medium text-muted-foreground">Devnet</span>
           </div>

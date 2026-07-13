@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Loader2, Boxes, Coins, Bot } from "lucide-react";
+import { ChevronLeft, Loader2, Boxes, Coins, Bot, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,11 @@ export function NewSessionForm() {
     borrowers: "1",
     cover: "20000",
     term: "60",
+    // Broker configuration (optional). Rates are percentages; blank keeps the server default.
+    coverRate: "",
+    liquidationRate: "",
+    managementFee: "",
+    debtMax: "",
   });
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -57,6 +62,10 @@ export function NewSessionForm() {
           coverAmount: form.cover.trim() || undefined,
           paymentInterval: Number(form.term),
           scenario,
+          coverRatePercent: form.coverRate.trim() ? Number(form.coverRate) : undefined,
+          liquidationRatePercent: form.liquidationRate.trim() ? Number(form.liquidationRate) : undefined,
+          managementFeePercent: form.managementFee.trim() ? Number(form.managementFee) : undefined,
+          debtMaximum: form.debtMax.trim() || undefined,
         },
         (step) => setSteps((prev) => [...prev, step]),
       );
@@ -100,12 +109,18 @@ export function NewSessionForm() {
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Depositors">
-              <Input type="number" min={1} value={form.depositors} onChange={set("depositors")} />
+              <Input type="number" min={1} max={20} value={form.depositors} onChange={set("depositors")} />
             </Field>
             <Field label="Borrowers">
-              <Input type="number" min={1} value={form.borrowers} onChange={set("borrowers")} />
+              <Input type="number" min={1} max={20} value={form.borrowers} onChange={set("borrowers")} />
             </Field>
           </div>
+          {Number(form.depositors) + Number(form.borrowers) > 10 && (
+            <p className="text-xs text-amber-600 dark:text-amber-500">
+              Large pools take longer to provision — each participant is a funded Devnet account with
+              credentials, so this can take several minutes. Capped at 20 per side.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -126,6 +141,36 @@ export function NewSessionForm() {
               <Input type="number" min={60} value={form.term} onChange={set("term")} />
             </Field>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Broker configuration (optional) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" /> Broker configuration
+          </CardTitle>
+          <CardDescription>Risk and fee parameters for the loan broker. Leave blank to keep defaults.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Management fee (%)">
+              <Input type="number" min={0} placeholder="e.g. 1.0" value={form.managementFee} onChange={set("managementFee")} />
+            </Field>
+            <Field label="Max debt">
+              <Input placeholder="Unlimited" value={form.debtMax} onChange={set("debtMax")} />
+            </Field>
+            <Field label="Min cover rate (%)">
+              <Input type="number" min={0} placeholder="e.g. 100" value={form.coverRate} onChange={set("coverRate")} />
+            </Field>
+            <Field label="Liquidation rate (%)">
+              <Input type="number" min={0} placeholder="e.g. 100" value={form.liquidationRate} onChange={set("liquidationRate")} />
+            </Field>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Min cover rate is how much first-loss cover must back each loan — lower it to originate more
+            against the same cover. Liquidation rate cannot exceed the min cover rate.
+          </p>
         </CardContent>
       </Card>
 

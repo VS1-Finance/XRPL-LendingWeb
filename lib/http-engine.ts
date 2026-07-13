@@ -83,7 +83,7 @@ function withConfig(summary: EngineSummary): SessionSummary {
 // with the summary from the final `done` event. An `error` event (or a transport failure) rejects.
 // EventSource cannot POST, so the stream is read from a fetch body and parsed as SSE frames by hand.
 async function streamCreate(
-  body: { label?: string },
+  body: Record<string, unknown>,
   onStep: (step: ProvisionStep) => void,
 ): Promise<EngineSummary> {
   let res: Response;
@@ -174,15 +174,26 @@ function rename(params: Record<string, string>, from: string, to: string): Recor
 export const httpEngine: EngineClient = {
   async createSession(req: ProvisionRequest, onStep?: (step: ProvisionStep) => void) {
     // With a step sink, provision over the streaming endpoint so the caller sees each ledger step as
-    // it settles; otherwise use the plain blocking create. The engine provisions from its own config
-    // file and accepts only a label today; the rest of the request is the caller's intent.
+    // it settles; otherwise use the plain blocking create. Pool sizes, asset, and broker rates are
+    // honoured by the engine (pool clamped there to a safe maximum).
+    const body = {
+      label: req.label,
+      depositors: req.depositors,
+      borrowers: req.borrowers,
+      asset: req.asset,
+      coverAmount: req.coverAmount,
+      coverRatePercent: req.coverRatePercent,
+      liquidationRatePercent: req.liquidationRatePercent,
+      managementFeePercent: req.managementFeePercent,
+      debtMaximum: req.debtMaximum,
+    };
     if (onStep) {
-      const summary = await streamCreate({ label: req.label }, onStep);
+      const summary = await streamCreate(body, onStep);
       return withConfig(summary);
     }
     const summary = await request<EngineSummary>("/sessions", {
       method: "POST",
-      body: JSON.stringify({ label: req.label }),
+      body: JSON.stringify(body),
     });
     return withConfig(summary);
   },

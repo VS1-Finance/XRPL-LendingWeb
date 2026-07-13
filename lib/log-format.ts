@@ -14,6 +14,7 @@ const ACTION_LABEL: Record<string, string> = {
   originate: "Originate loan",
   repay: "Repay loan",
   "manage-loan": "Default loan",
+  "deposit-cover": "Deposit cover",
 };
 
 // Labels for the provisioning step actions that seed a session's log (recorded as system actions).

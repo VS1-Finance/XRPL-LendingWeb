@@ -41,6 +41,11 @@ export interface ProvisionRequest {
   coverAmount?: string;
   paymentInterval?: number;
   scenario?: string;
+  // Broker configuration overrides (percentages and whole-unit amounts).
+  coverRatePercent?: number;
+  liquidationRatePercent?: number;
+  managementFeePercent?: number;
+  debtMaximum?: string;
 }
 
 // One provisioning step reported while a session is being created: an on-ledger action, its result,

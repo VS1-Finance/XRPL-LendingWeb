@@ -17,7 +17,7 @@ const MESSAGES: Record<string, string> = {
   tecNO_AUTH: "Not authorized — the account is not credentialed for this vault.",
   tecNO_PERMISSION: "Not permitted — this account may not perform this action.",
   tecNO_LINE: "No trust line for the asset — the account cannot hold it yet.",
-  tecEXPIRED: "The credential or authorization has expired.",
+  tecEXPIRED: "Expired — the loan or object is past its valid window (a fully repaid loan is closed and can no longer be paid).",
 
   // Liquidity and balances.
   tecINSUFFICIENT_FUNDS: "Insufficient funds for this amount.",
@@ -33,6 +33,7 @@ const MESSAGES: Record<string, string> = {
   tecINSUFFICIENT_PAYMENT: "Payment is below the amount due — pay at least the scheduled installment.",
   tecTOO_SOON: "Too soon — the loan is not yet delinquent. It can only be defaulted after its payment is overdue past the grace period.",
   tecKILLED: "The transaction could not complete and was cancelled.",
+  tecINTERNAL: "The ledger hit an internal error processing this — the loan may be in a state that cannot accept this action.",
 
   // Malformed requests — usually a bad amount or missing field before it reaches the ledger.
   temBAD_AMOUNT: "Invalid amount — enter a positive value.",
