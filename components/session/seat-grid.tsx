@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const ROLE_ICON: Record<string, typeof User> = {
-  issuer: ShieldCheck,
+  issuer: Coins,
+  credentialIssuer: ShieldCheck,
   owner: Settings2,
   depositor: Coins,
   borrower: HandCoins,
@@ -32,7 +33,7 @@ export function SeatGrid({
 }) {
   // Seats are grouped so the structure reads clearly: the protocol-fixed system roles, then each
   // pooled role with its own "add" affordance at the end of the group.
-  const system = seats.filter((s) => s.role === "issuer" || s.role === "owner");
+  const system = seats.filter((s) => s.role === "issuer" || s.role === "credentialIssuer" || s.role === "owner");
   const depositors = seats.filter((s) => s.role === "depositor");
   const borrowers = seats.filter((s) => s.role === "borrower");
 

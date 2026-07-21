@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { LogEntry } from "@/lib/engine-client";
@@ -14,6 +15,7 @@ import { StatBand } from "./stat-band";
 import { SeatGrid } from "./seat-grid";
 import { RolePanel, type ActFn } from "./role-panel";
 import { TransactionLog } from "./transaction-log";
+import { ActivityChart } from "./activity-chart";
 import { SessionInfo } from "./session-info";
 import { SessionNotFound } from "./session-not-found";
 
@@ -75,6 +77,22 @@ export function SessionView({ setupId }: { setupId: string }) {
     setSummary(next);
     toast("Seat released");
   }
+
+  // Auto-claim: when the goal wizard sends a ?claim=<role>, take the first open seat of that role once
+  // the session has loaded — so a goal-driven visitor lands already seated. Runs at most once, and only
+  // if the participant does not already hold a seat.
+  const searchParams = useSearchParams();
+  const autoClaimed = useRef(false);
+  useEffect(() => {
+    const role = searchParams.get("claim");
+    if (!role || autoClaimed.current || !summary || !participant) return;
+    if (summary.seats.some((s) => s.occupant.kind === "human" && s.occupant.id === participant)) return;
+    const target = summary.seats.find((s) => s.role === role && s.occupant.kind !== "human");
+    if (!target) return;
+    autoClaimed.current = true;
+    void claim(target.key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary, participant, searchParams]);
 
   async function addParticipant(role: "depositor" | "borrower") {
     const next = await engine.addParticipant(setupId, role);
@@ -179,7 +197,8 @@ export function SessionView({ setupId }: { setupId: string }) {
           </div>
         </TabsContent>
 
-        <TabsContent value="activity" className="mt-6">
+        <TabsContent value="activity" className="mt-6 space-y-6">
+          <ActivityChart entries={log} state={state} />
           <TransactionLog entries={log} />
         </TabsContent>
 

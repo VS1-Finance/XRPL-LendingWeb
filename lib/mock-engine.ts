@@ -75,10 +75,14 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
   const depositors = clampInt(req.depositors, 2, 1, 20);
   const borrowers = clampInt(req.borrowers, 1, 1, 20);
 
-  const seats: SeatSummary[] = [
-    { key: "issuer:0", role: "issuer", address: addressFrom(next), occupant: { kind: "bot" } },
-    { key: "owner:0", role: "owner", address: addressFrom(next), occupant: { kind: "bot" } },
-  ];
+  // Permissioned by default; a public vault has no credential issuer and no credentials. An XRP vault
+  // has no currency issuer — but the mock keeps the currency issuer seat for the demo's IOU default.
+  const permissioned = req.permissioned !== false;
+  const isXrp = (req.asset?.trim() || "XRP").toUpperCase() === "XRP";
+  const seats: SeatSummary[] = [];
+  if (!isXrp) seats.push({ key: "issuer:0", role: "issuer", address: addressFrom(next), occupant: { kind: "bot" } });
+  if (permissioned) seats.push({ key: "credentialIssuer:0", role: "credentialIssuer", address: addressFrom(next), occupant: { kind: "bot" } });
+  seats.push({ key: "owner:0", role: "owner", address: addressFrom(next), occupant: { kind: "bot" } });
   for (let i = 0; i < depositors; i++)
     seats.push({ key: `depositor:${i}`, role: "depositor", address: addressFrom(next), occupant: { kind: "bot" } });
   for (let i = 0; i < borrowers; i++)
@@ -91,7 +95,7 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
     seats,
     openSeats: [],
     config: {
-      asset: req.asset?.trim() || "RLUSD",
+      asset: req.asset?.trim() || "XRP",
       coverAmount: cover,
       paymentInterval: clampInt(req.paymentInterval, 60, 30, 86400),
       scenario: req.scenario?.trim() || "mixed",
@@ -341,15 +345,16 @@ function ensure(setupId: string): Session {
 // Each of these lands in the transaction log as a bot/system action.
 function prime(session: Session) {
   const next = rng(seedFor(session.summary.setupId) ^ 0x9e3779b9);
-  const issuer = seatOf(session, "issuer:0");
+  // Credentials are issued by the credential issuer (permissioned sessions only).
+  const credentialIssuer = seatOf(session, "credentialIssuer:0");
   const owner = seatOf(session, "owner:0");
   const depositor = session.summary.seats.find((s) => s.role === "depositor");
 
-  if (issuer && depositor) {
+  if (credentialIssuer && depositor) {
     // Provisioning both issues and accepts each participant's credential, so the primed depositor is
     // active from the start. Mirror both halves here.
     const p = { subject: depositor.address };
-    record(session, issuer, "system", "issue-credential", apply(session, issuer, { seat: issuer.key, action: "issue-credential", params: p }, next), p);
+    record(session, credentialIssuer, "system", "issue-credential", apply(session, credentialIssuer, { seat: credentialIssuer.key, action: "issue-credential", params: p }, next), p);
     record(session, depositor, "system", "accept-credential", apply(session, depositor, { seat: depositor.key, action: "accept-credential" }, next), undefined);
   }
   if (depositor) {

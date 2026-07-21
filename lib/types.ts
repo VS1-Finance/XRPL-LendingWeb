@@ -51,6 +51,6 @@ export interface SessionState {
   credentials: { address: string; status: "accepted" | "pending" | "none" }[];
 }
 
-// The five participant roles as presented in the UI. Vault manager and loan originator are two role
-// surfaces on the single owner seat.
-export type UiRole = "issuer" | "depositor" | "vault-manager" | "loan-originator" | "borrower";
+// The participant roles as presented in the UI. Vault manager and loan originator are two role
+// surfaces on the single owner seat. Currency issuer and credential issuer are distinct accounts.
+export type UiRole = "issuer" | "credential-issuer" | "depositor" | "vault-manager" | "loan-originator" | "borrower";

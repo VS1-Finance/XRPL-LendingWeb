@@ -181,6 +181,7 @@ export const httpEngine: EngineClient = {
       depositors: req.depositors,
       borrowers: req.borrowers,
       asset: req.asset,
+      permissioned: req.permissioned,
       coverAmount: req.coverAmount,
       coverRatePercent: req.coverRatePercent,
       liquidationRatePercent: req.liquidationRatePercent,

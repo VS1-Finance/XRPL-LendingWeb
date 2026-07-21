@@ -36,6 +36,9 @@ export interface LogEntry {
 export interface ProvisionRequest {
   label?: string;
   asset?: string;
+  // Whether the vault is permissioned (domain-gated, credentials required — the default) or public
+  // (open, anyone may deposit). Omit or true for permissioned; false for public.
+  permissioned?: boolean;
   depositors?: number;
   borrowers?: number;
   coverAmount?: string;
