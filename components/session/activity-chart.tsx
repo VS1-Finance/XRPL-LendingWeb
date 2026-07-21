@@ -34,21 +34,21 @@ function kindOf(action: string): Kind | undefined {
 export function ActivityChart({ entries, state }: { entries: LogEntry[]; state: SessionState | null }) {
   const settled = entries.filter((e) => e.ok);
   const counts = new Map<Kind, number>();
-  // The cumulative count of deposit-vs-loan events over the log sequence — a cheap proxy for how the
-  // market filled and lent over time.
-  const series: number[] = [];
-  let running = 0;
-  for (const e of [...settled].sort((a, b) => a.seq - b.seq)) {
+  for (const e of settled) {
     const k = kindOf(e.action);
-    if (!k) continue;
-    counts.set(k, (counts.get(k) ?? 0) + 1);
-    running += k === "withdraw" || k === "default" ? -1 : 1;
-    series.push(running);
+    if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
   }
 
   const total = KINDS.reduce((sum, { kind }) => sum + (counts.get(kind) ?? 0), 0);
   const activeLoans = state?.loans.filter((l) => !l.defaulted && l.paymentRemaining > 0).length ?? 0;
   const defaultedLoans = state?.loans.filter((l) => l.defaulted).length ?? 0;
+
+  // Vault utilization: how much of the pool is lent out vs. sitting available. assetsTotal is all
+  // deposited liquidity; assetsAvailable is what is not currently backing a loan.
+  const assetsTotal = Number(state?.vault?.assetsTotal ?? "0");
+  const assetsAvailable = Number(state?.vault?.assetsAvailable ?? "0");
+  const lent = Math.max(0, assetsTotal - assetsAvailable);
+  const lentPct = assetsTotal > 0 ? Math.min(100, (lent / assetsTotal) * 100) : 0;
 
   return (
     <Card>
@@ -63,8 +63,8 @@ export function ActivityChart({ entries, state }: { entries: LogEntry[]; state: 
           <Stat label="Defaulted" value={String(defaultedLoans)} />
         </div>
 
-        {/* Cumulative net-activity sparkline. */}
-        <Sparkline series={series} />
+        {/* How deployed the pool is: lent out vs. available. */}
+        <UtilizationBar total={assetsTotal} lent={lent} available={assetsAvailable} lentPct={lentPct} />
 
         {/* Event composition — a count per kind. */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
@@ -94,24 +94,31 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-// A minimal inline-SVG line of the cumulative series, normalized to the box. Flat when there is nothing
-// to show. No axes — it is a shape, not a precise chart.
-function Sparkline({ series }: { series: number[] }) {
-  const w = 600;
-  const h = 64;
-  if (series.length < 2) {
-    return <div className="h-16 rounded-md border bg-muted/20" />;
-  }
-  const max = Math.max(...series, 1);
-  const min = Math.min(...series, 0);
-  const span = max - min || 1;
-  const step = w / (series.length - 1);
-  const points = series
-    .map((v, i) => `${(i * step).toFixed(1)},${(h - ((v - min) / span) * (h - 8) - 4).toFixed(1)}`)
-    .join(" ");
+// Vault utilization at a glance: the share of deposited liquidity currently lent out. A filled bar and
+// a legend, so it reads with any amount of data — an empty vault shows an empty bar, not a flat line.
+function UtilizationBar({ total, lent, available, lentPct }: { total: number; lent: number; available: number; lentPct: number }) {
+  const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-16 w-full rounded-md border bg-muted/20">
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth={1.5} className="text-foreground/70" vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between text-xs">
+        <span className="font-medium">Vault utilization</span>
+        <span className="font-mono tabular-nums text-muted-foreground">
+          {total > 0 ? `${lentPct.toFixed(0)}% lent` : "no deposits yet"}
+        </span>
+      </div>
+      <div className="flex h-3 w-full overflow-hidden rounded-full border bg-muted/30">
+        <div className="h-full bg-sky-500/80" style={{ width: `${lentPct}%` }} />
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-sky-500/80" /> Lent out{" "}
+          <span className="font-mono tabular-nums text-foreground">{fmt(lent)}</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full border bg-muted/30" /> Available{" "}
+          <span className="font-mono tabular-nums text-foreground">{fmt(available)}</span>
+        </span>
+      </div>
+    </div>
   );
 }
