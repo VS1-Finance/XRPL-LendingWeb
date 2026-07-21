@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Loader2, Boxes, Coins, Bot, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronDown, Loader2, Boxes, Coins, Bot, SlidersHorizontal, ShieldCheck, Globe, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { engine } from "@/lib/client";
 import type { ProvisionStep } from "@/lib/engine-client";
+import { TEMPLATES, GOALS, templateById, type Template, type Goal } from "@/lib/templates";
 import { ProvisioningView } from "./provisioning-view";
 
 const SCENARIOS = [
@@ -20,17 +21,29 @@ const SCENARIOS = [
   { id: "defaults", label: "Defaults-heavy", hint: "Weighted toward defaults to exercise the loss path." },
 ];
 
+// The XLS specifications each parameter comes from, linked so a reader can trace a field to the ledger
+// amendment that defines it.
+const XLS_VAULT = { href: "https://github.com/XRPLF/XRPL-Standards/tree/master/XLS-0065d-single-asset-vault", label: "XLS-65" };
+const XLS_LENDING = { href: "https://github.com/XRPLF/XRPL-Standards/tree/master/XLS-0066d-lending-protocol", label: "XLS-66" };
+const XLS_CREDENTIALS = { href: "https://github.com/XRPLF/XRPL-Standards/tree/master/XLS-0070d-credentials", label: "XLS-70" };
+const XLS_DOMAIN = { href: "https://github.com/XRPLF/XRPL-Standards/tree/master/XLS-0080d-permissioned-domains", label: "XLS-80" };
+
 export function NewSessionForm() {
   const router = useRouter();
   const [provisioning, setProvisioning] = useState(false);
   const [steps, setSteps] = useState<ProvisionStep[]>([]);
   const [scenario, setScenario] = useState("mixed");
+  // Permissioned (domain-gated, credentials required) is the default — it leads with the tecNO_AUTH
+  // enforcement story. Public opens the vault to anyone, no credentials.
+  const [permissioned, setPermissioned] = useState(true);
   const [form, setForm] = useState({
     label: "",
-    asset: "RLUSD",
+    // XRP is the frictionless default — no issuer, no trust lines, deposit straight away. Any other
+    // value is treated as an issued currency the harness stands up its own issuer for.
+    asset: "XRP",
     depositors: "2",
     borrowers: "1",
-    cover: "20000",
+    cover: "2000",
     // Broker configuration (optional). Rates are percentages; blank keeps the server default.
     coverRate: "",
     liquidationRate: "",
@@ -40,6 +53,24 @@ export function NewSessionForm() {
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  // Applying a template fills the fields but leaves them editable — it is a starting point, not a lock.
+  function applyTemplate(t: Template) {
+    setTemplateId(t.id);
+    setPermissioned(t.values.permissioned);
+    setScenario(t.values.scenario);
+    setForm((f) => ({ ...f, asset: t.values.asset, depositors: t.values.depositors, borrowers: t.values.borrowers, cover: t.values.cover }));
+  }
+
+  // The chosen goal — its template configures the market and its role is auto-claimed on arrival.
+  const [goalId, setGoalId] = useState<string | null>(null);
+  function applyGoal(g: Goal) {
+    setGoalId(g.id);
+    const t = templateById(g.templateId);
+    if (t) applyTemplate(t);
+  }
+  const claimRole = goalId ? GOALS.find((g) => g.id === goalId)?.claimRole : undefined;
 
   // Once provisioning starts, the form is replaced by the deployment progress view, which fills in
   // with each step as the engine settles it, until the session is live and we navigate to it (or
@@ -56,6 +87,7 @@ export function NewSessionForm() {
         {
           label: form.label.trim() || undefined,
           asset: form.asset.trim() || undefined,
+          permissioned,
           depositors: Number(form.depositors),
           borrowers: Number(form.borrowers),
           coverAmount: form.cover.trim() || undefined,
@@ -70,7 +102,9 @@ export function NewSessionForm() {
       toast.success("Session provisioned", {
         description: "Accounts, credentials, vault, and cover are live on Devnet.",
       });
-      router.push(`/sessions/${session.setupId}`);
+      // Carry the goal's role so the session view can auto-claim the matching seat on arrival.
+      const claim = claimRole ? `?claim=${encodeURIComponent(claimRole)}` : "";
+      router.push(`/sessions/${session.setupId}${claim}`);
     } catch {
       toast.error("Provisioning failed", { description: "Please try again." });
       setProvisioning(false);
@@ -85,10 +119,68 @@ export function NewSessionForm() {
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">New session</h1>
         <p className="text-sm text-muted-foreground">
-          Configure the environment. Provisioning creates the accounts, credentials, domain, vault,
-          broker, and cover on Devnet.
+          Configure the market. Provisioning stands up the accounts, vault, broker, and cover on Devnet
+          — plus a permissioned domain and credentials when access is gated.
         </p>
       </div>
+
+      {/* Goal */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">What do you want to do?</CardTitle>
+          <CardDescription>
+            Pick a goal and we&apos;ll set up a fitting market and drop you into the right seat. Or skip
+            this and configure everything below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {GOALS.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => applyGoal(g)}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  goalId === g.id ? "border-foreground/40 bg-muted/40" : "hover:bg-muted/30"
+                }`}
+              >
+                <div className="text-sm font-medium">{g.label}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{g.summary}</div>
+              </button>
+            ))}
+          </div>
+          {claimRole && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              On arrival you&apos;ll be seated automatically. Adjust anything below first if you like.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Templates */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Start from a template</CardTitle>
+          <CardDescription>A one-click preset. Every field below stays editable.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => applyTemplate(t)}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  templateId === t.id ? "border-foreground/40 bg-muted/40" : "hover:bg-muted/30"
+                }`}
+              >
+                <div className="text-sm font-medium">{t.label}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{t.summary}</div>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Environment */}
       <Card>
@@ -99,17 +191,17 @@ export function NewSessionForm() {
           <CardDescription>The vault asset and participant pools.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Field label="Label (optional)">
+          <Field label="Label">
             <Input placeholder="e.g. demo" value={form.label} onChange={set("label")} />
           </Field>
-          <Field label="Vault asset">
+          <Field label="Vault asset" required doc={XLS_VAULT} hint="XRP is the frictionless default — no issuer or trust lines. Enter a 3-letter or hex currency code (e.g. USD) to use an issued token instead.">
             <Input value={form.asset} onChange={set("asset")} />
           </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Depositors">
+            <Field label="Depositors" required>
               <Input type="number" min={1} max={20} value={form.depositors} onChange={set("depositors")} />
             </Field>
-            <Field label="Borrowers">
+            <Field label="Borrowers" required>
               <Input type="number" min={1} max={20} value={form.borrowers} onChange={set("borrowers")} />
             </Field>
           </div>
@@ -122,6 +214,57 @@ export function NewSessionForm() {
         </CardContent>
       </Card>
 
+      {/* Access */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" /> Access
+            <span className="ml-auto flex items-center gap-2 text-xs font-normal text-muted-foreground">
+              <a href={XLS_CREDENTIALS.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 hover:text-foreground">
+                {XLS_CREDENTIALS.label} <ExternalLink className="h-3 w-3" />
+              </a>
+              <a href={XLS_DOMAIN.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 hover:text-foreground">
+                {XLS_DOMAIN.label} <ExternalLink className="h-3 w-3" />
+              </a>
+            </span>
+          </CardTitle>
+          <CardDescription>Who may deposit into the vault.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setPermissioned(true)}
+              className={`rounded-lg border p-3 text-left transition-colors ${
+                permissioned ? "border-foreground/40 bg-muted/40" : "hover:bg-muted/30"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <ShieldCheck className="h-4 w-4" /> Permissioned
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                A credential gates the vault. Only credentialed accounts may deposit — an uncredentialed
+                deposit is rejected with tecNO_AUTH.
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPermissioned(false)}
+              className={`rounded-lg border p-3 text-left transition-colors ${
+                !permissioned ? "border-foreground/40 bg-muted/40" : "hover:bg-muted/30"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <Globe className="h-4 w-4" /> Public
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                An open vault. Anyone may deposit without a credential — no domain, no credential issuer.
+              </div>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Lending parameters */}
       <Card>
         <CardHeader>
@@ -131,68 +274,73 @@ export function NewSessionForm() {
           <CardDescription>Cover and loan timing.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Field label="First-loss cover">
+          <Field label="First-loss cover" required doc={XLS_LENDING} hint="Capital the owner seeds to back loans. A loan must stay within the cover at the minimum cover rate, so this caps how much can be originated.">
             <Input value={form.cover} onChange={set("cover")} />
           </Field>
         </CardContent>
       </Card>
 
-      {/* Broker configuration (optional) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" /> Broker configuration
-          </CardTitle>
-          <CardDescription>Risk and fee parameters for the loan broker. Leave blank to keep defaults.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Management fee (%)">
-              <Input type="number" min={0} placeholder="e.g. 1.0" value={form.managementFee} onChange={set("managementFee")} />
-            </Field>
-            <Field label="Max debt">
-              <Input placeholder="Unlimited" value={form.debtMax} onChange={set("debtMax")} />
-            </Field>
-            <Field label="Min cover rate (%)">
-              <Input type="number" min={0} placeholder="e.g. 100" value={form.coverRate} onChange={set("coverRate")} />
-            </Field>
-            <Field label="Liquidation rate (%)">
-              <Input type="number" min={0} placeholder="e.g. 100" value={form.liquidationRate} onChange={set("liquidationRate")} />
-            </Field>
+      {/* Advanced settings — collapsed by default so the common path stays short. Everything here has a
+          working default; expand only to tune the broker or the bot mix. */}
+      <details className="group rounded-xl border bg-card">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
+          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+          Advanced settings
+          <span className="text-xs font-normal text-muted-foreground">broker rates, bot behavior</span>
+          <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="space-y-6 border-t p-4">
+          {/* Broker configuration (optional) */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              Broker configuration
+              <a href={XLS_LENDING.href} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-0.5 text-xs font-normal text-muted-foreground hover:text-foreground">
+                {XLS_LENDING.label} <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Management fee (%)">
+                <Input type="number" min={0} placeholder="e.g. 1.0" value={form.managementFee} onChange={set("managementFee")} />
+              </Field>
+              <Field label="Max debt">
+                <Input placeholder="Unlimited" value={form.debtMax} onChange={set("debtMax")} />
+              </Field>
+              <Field label="Min cover rate (%)">
+                <Input type="number" min={0} placeholder="e.g. 100" value={form.coverRate} onChange={set("coverRate")} />
+              </Field>
+              <Field label="Liquidation rate (%)">
+                <Input type="number" min={0} placeholder="e.g. 100" value={form.liquidationRate} onChange={set("liquidationRate")} />
+              </Field>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Min cover rate is how much first-loss cover must back each loan — lower it to originate more
+              against the same cover. Liquidation rate cannot exceed the min cover rate.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Min cover rate is how much first-loss cover must back each loan — lower it to originate more
-            against the same cover. Liquidation rate cannot exceed the min cover rate.
-          </p>
-        </CardContent>
-      </Card>
 
-      {/* Bots */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Bot className="h-4 w-4 text-muted-foreground" /> Bot behavior
-          </CardTitle>
-          <CardDescription>How the agents filling unheld seats behave.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {SCENARIOS.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setScenario(s.id)}
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  scenario === s.id ? "border-foreground/40 bg-muted/40" : "hover:bg-muted/30"
-                }`}
-              >
-                <div className="text-sm font-medium">{s.label}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{s.hint}</div>
-              </button>
-            ))}
+          {/* Bot behavior */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Bot className="h-4 w-4 text-muted-foreground" /> Bot behavior
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {SCENARIOS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setScenario(s.id)}
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    scenario === s.id ? "border-foreground/40 bg-muted/40" : "hover:bg-muted/30"
+                  }`}
+                >
+                  <div className="text-sm font-medium">{s.label}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{s.hint}</div>
+                </button>
+              ))}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </details>
 
       <Separator />
 
@@ -214,11 +362,37 @@ export function NewSessionForm() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  hint,
+  doc,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  doc?: { href: string; label: string };
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label className="flex items-center gap-1.5">
+        {label}
+        <span className="text-xs font-normal text-muted-foreground">{required ? "required" : "optional"}</span>
+        {doc && (
+          <a
+            href={doc.href}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto inline-flex items-center gap-0.5 text-xs font-normal text-muted-foreground hover:text-foreground"
+          >
+            {doc.label} <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </Label>
       {children}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

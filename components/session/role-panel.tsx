@@ -66,7 +66,8 @@ export function RolePanel({
         </p>
         {seat.role === "depositor" && <DepositorActions credentialPending={isCredentialPending(seat, state)} onAct={onAct} />}
         {seat.role === "borrower" && <BorrowerActions seat={seat} state={state} credentialPending={isCredentialPending(seat, state)} onAct={onAct} />}
-        {seat.role === "issuer" && <IssuerActions allSeats={allSeats} onAct={onAct} />}
+        {seat.role === "credentialIssuer" && <CredentialIssuerActions allSeats={allSeats} onAct={onAct} />}
+        {seat.role === "issuer" && <CurrencyIssuerActions />}
         {seat.role === "owner" && <OwnerActions state={state} onAct={onAct} />}
       </CardContent>
     </Card>
@@ -481,7 +482,21 @@ function participantChoices(allSeats: SeatSummary[]): Choice[] {
     .map((s) => ({ value: s.address, label: `${seatLabel(s)} · ${shortId(s.address)}` }));
 }
 
-function IssuerActions({ allSeats, onAct }: { allSeats: SeatSummary[]; onAct: ActFn }) {
+// The currency issuer mints and distributes the vault's issued asset. Those steps run once during
+// provisioning; there is no ongoing human action, so the panel just explains the account's role and the
+// deliberate separation from the credential issuer.
+function CurrencyIssuerActions() {
+  return (
+    <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
+      This account mints and distributes the vault&apos;s issued asset. Minting and distribution happen
+      once at provisioning, so there is nothing to do here by hand. It is kept separate from the
+      credential issuer on purpose — so the raw ledger stays legible. An XRP vault has no currency issuer
+      at all.
+    </div>
+  );
+}
+
+function CredentialIssuerActions({ allSeats, onAct }: { allSeats: SeatSummary[]; onAct: ActFn }) {
   const subjects = participantChoices(allSeats);
   return (
     <div className="space-y-4">
