@@ -4,6 +4,7 @@ import type {
   EngineClient,
   LogEntry,
   ProvisionRequest,
+  SessionBalances,
 } from "./engine-client";
 import type { LoanState, SeatSummary, SessionState, SessionSummary } from "./types";
 import { actionLabel, actionDetail } from "./log-format";
@@ -413,6 +414,16 @@ export const mockEngine: EngineClient = {
             : ("none" as const),
       }));
     return state;
+  },
+
+  async getBalances(setupId) {
+    const session = ensure(setupId);
+    return {
+      asset: session.summary.config.asset,
+      accounts: session.summary.seats.map((s) => ({
+        seat: s.key, role: s.role, address: s.address, xrp: "100", assetHeld: "0", shares: "0",
+      })),
+    };
   },
 
   async getLog(setupId) {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import type { LogEntry } from "@/lib/engine-client";
+import type { LogEntry, SessionBalances } from "@/lib/engine-client";
 import type { SessionState, SessionSummary } from "@/lib/types";
 import { engine } from "@/lib/client";
 import { useParticipant } from "@/lib/identity";
@@ -18,6 +18,7 @@ import { TransactionLog } from "./transaction-log";
 import { ActivityChart } from "./activity-chart";
 import { SessionInfo } from "./session-info";
 import { SessionNotFound } from "./session-not-found";
+import { WalletPanel } from "./wallet-panel";
 
 // The session orchestrator. It owns the participant identity and every call to the engine client:
 // loading the session, polling live state and the transaction log, claiming and releasing seats, and
@@ -28,15 +29,21 @@ export function SessionView({ setupId }: { setupId: string }) {
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [state, setState] = useState<SessionState | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [balances, setBalances] = useState<SessionBalances | null>(null);
   const [botsRunning, setBotsRunning] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
   // Pulls the live state and transaction log. Polled on an interval so the view reflects everything
   // happening in the session, including other participants and bots.
   const refresh = useCallback(async () => {
-    const [nextState, nextLog] = await Promise.all([engine.getState(setupId), engine.getLog(setupId)]);
+    const [nextState, nextLog, nextBalances] = await Promise.all([
+      engine.getState(setupId),
+      engine.getLog(setupId),
+      engine.getBalances(setupId).catch(() => null),
+    ]);
     setState(nextState);
     setLog(nextLog);
+    if (nextBalances) setBalances(nextBalances);
   }, [setupId]);
 
   // Initial load of the seat graph, then start polling. A session id that does not resolve (a bad or
@@ -63,6 +70,10 @@ export function SessionView({ setupId }: { setupId: string }) {
 
   const seats = summary?.seats ?? [];
   const mySeat = seats.find((s) => s.occupant.kind === "human" && s.occupant.id === participant);
+  // The wallet asset is the vault's true on-ledger currency, carried on the balances payload — not the
+  // session summary, whose config the engine does not yet echo (the http client defaults it).
+  const asset = balances?.asset ?? "XRP";
+  const myBalance = mySeat ? balances?.accounts.find((a) => a.seat === mySeat.key) : undefined;
 
   async function claim(seatKey: string) {
     if (!participant) return;
@@ -183,6 +194,8 @@ export function SessionView({ setupId }: { setupId: string }) {
                   onClaim={claim}
                   onRelease={release}
                   onAddParticipant={addParticipant}
+                  balances={balances}
+                  asset={asset}
                 />
               </section>
             </div>
@@ -192,6 +205,7 @@ export function SessionView({ setupId }: { setupId: string }) {
               <section className="space-y-3 lg:sticky lg:top-20">
                 <SectionLabel>Act</SectionLabel>
                 <RolePanel seat={mySeat} state={state} allSeats={seats} onAct={act} />
+                <WalletPanel balance={myBalance} asset={asset} />
               </section>
             </div>
           </div>

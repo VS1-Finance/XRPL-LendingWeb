@@ -33,6 +33,20 @@ export interface LogEntry {
   detail?: string; // e.g. "90,000 RLUSD"
 }
 
+export interface AccountBalance {
+  seat: string;
+  role: string;
+  address: string;
+  xrp: string;
+  assetHeld: string;
+  shares: string;
+}
+
+export interface SessionBalances {
+  asset: string;
+  accounts: AccountBalance[];
+}
+
 export interface ProvisionRequest {
   label?: string;
   asset?: string;
@@ -67,6 +81,7 @@ export interface EngineClient {
   createSession(req: ProvisionRequest, onStep?: (step: ProvisionStep) => void): Promise<SessionSummary>;
   getSession(setupId: string): Promise<SessionSummary>;
   getState(setupId: string): Promise<SessionState>;
+  getBalances(setupId: string): Promise<SessionBalances>;
   getLog(setupId: string): Promise<LogEntry[]>;
   claimSeat(setupId: string, seat: string, participant: string): Promise<SessionSummary>;
   releaseSeat(setupId: string, seat: string, participant: string): Promise<SessionSummary>;

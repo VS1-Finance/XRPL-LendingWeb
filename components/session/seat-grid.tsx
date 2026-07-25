@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { ShieldCheck, Coins, Settings2, FileSignature, HandCoins, User, Bot, CircleDashed, Plus, Loader2 } from "lucide-react";
 import type { SeatSummary } from "@/lib/types";
+import type { SessionBalances } from "@/lib/engine-client";
 import { seatLabel } from "@/lib/roles";
 import { shortId } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { WalletModal } from "./wallet-modal";
 
 const ROLE_ICON: Record<string, typeof User> = {
   issuer: Coins,
@@ -24,12 +26,16 @@ export function SeatGrid({
   onClaim,
   onRelease,
   onAddParticipant,
+  balances,
+  asset,
 }: {
   seats: SeatSummary[];
   me: string;
   onClaim: (seatKey: string) => void;
   onRelease: (seatKey: string) => void;
   onAddParticipant: (role: "depositor" | "borrower") => Promise<void>;
+  balances: SessionBalances | null;
+  asset: string;
 }) {
   // Seats are grouped so the structure reads clearly: the protocol-fixed system roles, then each
   // pooled role with its own "add" affordance at the end of the group.
@@ -37,7 +43,7 @@ export function SeatGrid({
   const depositors = seats.filter((s) => s.role === "depositor");
   const borrowers = seats.filter((s) => s.role === "borrower");
 
-  const cardProps = { me, onClaim, onRelease };
+  const cardProps = { me, onClaim, onRelease, balances, asset };
 
   return (
     <div className="space-y-5">
@@ -119,11 +125,15 @@ function SeatCard({
   me,
   onClaim,
   onRelease,
+  balances,
+  asset,
 }: {
   seat: SeatSummary;
   me: string;
   onClaim: (seatKey: string) => void;
   onRelease: (seatKey: string) => void;
+  balances: SessionBalances | null;
+  asset: string;
 }) {
   const key = seat.key;
   const Icon = ROLE_ICON[seat.role] ?? User;
@@ -146,7 +156,10 @@ function SeatCard({
             {shortId(seat.address)}
           </div>
         </div>
-        <OccupantBadge seat={seat} isMine={isMine} />
+        <div className="flex items-center gap-1">
+          <WalletModal seatKey={seat.key} label={seatLabel(seat)} balances={balances} asset={asset} />
+          <OccupantBadge seat={seat} isMine={isMine} />
+        </div>
       </div>
 
       {isMine ? (
