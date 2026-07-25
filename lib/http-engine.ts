@@ -5,6 +5,7 @@ import type {
   LogEntry,
   ProvisionRequest,
   ProvisionStep,
+  SessionBalances,
 } from "./engine-client";
 import type { SessionConfig, SessionState, SessionSummary } from "./types";
 import { actionLabel, actionDetail } from "./log-format";
@@ -206,6 +207,10 @@ export const httpEngine: EngineClient = {
 
   async getState(setupId: string) {
     return request<SessionState>(`/sessions/${encodeURIComponent(setupId)}/state`);
+  },
+
+  async getBalances(setupId: string) {
+    return request<SessionBalances>(`/sessions/${encodeURIComponent(setupId)}/balances`);
   },
 
   async getLog(setupId: string): Promise<LogEntry[]> {
