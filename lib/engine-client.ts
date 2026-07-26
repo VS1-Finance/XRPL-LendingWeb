@@ -31,6 +31,7 @@ export interface LogEntry {
   ok: boolean;
   hash?: string; // on-ledger transaction hash, present when it settled
   detail?: string; // e.g. "90,000 RLUSD"
+  amount?: number; // raw numeric magnitude of the action (deposit/withdraw/originate/set-max), when present
 }
 
 export interface AccountBalance {

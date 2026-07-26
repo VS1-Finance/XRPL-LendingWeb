@@ -16,6 +16,7 @@ import { SeatGrid } from "./seat-grid";
 import { RolePanel, type ActFn } from "./role-panel";
 import { TransactionLog } from "./transaction-log";
 import { ActivityChart } from "./activity-chart";
+import { ActivityCharts, type HistoryPoint } from "./activity-charts";
 import { SessionInfo } from "./session-info";
 import { SessionNotFound } from "./session-not-found";
 import { WalletPanel } from "./wallet-panel";
@@ -32,6 +33,9 @@ export function SessionView({ setupId }: { setupId: string }) {
   const [balances, setBalances] = useState<SessionBalances | null>(null);
   const [botsRunning, setBotsRunning] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  // A bounded in-memory buffer of vault assets and cover sampled on each poll, so the Activity tab can
+  // chart how they move "since this page opened" (the engine exposes only the current snapshot).
+  const [history, setHistory] = useState<HistoryPoint[]>([]);
 
   // Pulls the live state and transaction log. Polled on an interval so the view reflects everything
   // happening in the session, including other participants and bots.
@@ -44,6 +48,16 @@ export function SessionView({ setupId }: { setupId: string }) {
     setState(nextState);
     setLog(nextLog);
     if (nextBalances) setBalances(nextBalances);
+    // Append a history point from this poll, skipping any observation that does not parse cleanly, and
+    // keep the buffer bounded so a long-lived page cannot grow it without limit.
+    const assetsTotal = Number(nextState.vault?.assetsTotal);
+    const coverAvailable = Number(nextState.broker?.coverAvailable);
+    if (Number.isFinite(assetsTotal) && Number.isFinite(coverAvailable)) {
+      setHistory((prev) => {
+        const next = [...prev, { ts: Date.now(), assetsTotal, coverAvailable }];
+        return next.length > 200 ? next.slice(next.length - 200) : next;
+      });
+    }
   }, [setupId]);
 
   // Initial load of the seat graph, then start polling. A session id that does not resolve (a bad or
@@ -213,6 +227,7 @@ export function SessionView({ setupId }: { setupId: string }) {
 
         <TabsContent value="activity" className="mt-6 space-y-6">
           <ActivityChart entries={log} state={state} />
+          <ActivityCharts entries={log} state={state} balances={balances} history={history} />
           <TransactionLog entries={log} />
         </TabsContent>
 

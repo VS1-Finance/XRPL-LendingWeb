@@ -217,18 +217,25 @@ export const httpEngine: EngineClient = {
     // The engine stores raw action rows; the display label and human-readable detail are formatted
     // here (the engine keeps the log lean and format-free).
     const rows = await request<EngineLogRow[]>(`/sessions/${encodeURIComponent(setupId)}/log`);
-    return rows.map((r) => ({
-      seq: r.seq,
-      ts: r.ts,
-      actor: r.actor,
-      role: r.role,
-      by: r.by,
-      action: actionLabel(r.action),
-      code: r.code,
-      ok: r.code === "tesSUCCESS",
-      hash: r.hash,
-      detail: actionDetail(r.params),
-    }));
+    return rows.map((r) => {
+      // Carry the raw magnitude of amount-bearing actions (deposit/withdraw/originate/set-max) onto
+      // the entry so the charts can plot real values; leave undefined when the row carries no number.
+      const raw = Number(r.params?.amount ?? r.params?.principal ?? r.params?.assetsMaximum);
+      const amount = Number.isFinite(raw) ? raw : undefined;
+      return {
+        seq: r.seq,
+        ts: r.ts,
+        actor: r.actor,
+        role: r.role,
+        by: r.by,
+        action: actionLabel(r.action),
+        code: r.code,
+        ok: r.code === "tesSUCCESS",
+        hash: r.hash,
+        detail: actionDetail(r.params),
+        amount,
+      };
+    });
   },
 
   async claimSeat(setupId: string, seat: string, participant: string) {
@@ -247,9 +254,14 @@ export const httpEngine: EngineClient = {
     return withConfig(summary);
   },
 
-  async addParticipant(): Promise<SessionSummary> {
-    // Pool size is fixed at provisioning; the engine has no runtime add-participant endpoint yet.
-    throw new HttpEngineError("adding participants at runtime is not supported by the engine yet", 501);
+  async addParticipant(setupId: string, role: "depositor" | "borrower") {
+    // Grows a pooled role by one bot-seated member: the engine derives, funds, and credentials a fresh
+    // account, seats a bot on it, and returns the updated summary.
+    const summary = await request<EngineSummary>(
+      `/sessions/${encodeURIComponent(setupId)}/participants`,
+      { method: "POST", body: JSON.stringify({ role }) },
+    );
+    return withConfig(summary);
   },
 
   async act(setupId: string, participant: string, req: ActionRequest) {
