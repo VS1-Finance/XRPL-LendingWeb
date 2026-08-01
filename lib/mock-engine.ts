@@ -8,6 +8,7 @@ import type {
 } from "./engine-client";
 import type { LoanState, SeatSummary, SessionState, SessionSummary } from "./types";
 import { actionLabel, actionDetail } from "./log-format";
+import { currencyLabel } from "./format";
 
 // An in-memory implementation of the engine client. It is not the engine, but it behaves like it:
 // actions succeed or are rejected with real ledger result codes, the session state moves in response,
@@ -188,7 +189,7 @@ function record(
     code: result.code,
     ok: result.ok,
     hash: result.hash,
-    detail: actionDetail(params),
+    detail: actionDetail(params, currencyLabel(session.summary.asset)),
   });
 }
 

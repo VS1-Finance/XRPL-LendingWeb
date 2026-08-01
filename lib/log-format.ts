@@ -40,7 +40,7 @@ export function actionLabel(action: string): string {
 
 // A short, human-readable detail for a log row, derived from the raw params. Handles both the UI's
 // param names (amount, domain) and the engine's (principal, assetsMaximum, credentialType).
-export function actionDetail(params: Record<string, string> | undefined, asset = "RLUSD"): string | undefined {
+export function actionDetail(params: Record<string, string> | undefined, asset = "XRP"): string | undefined {
   if (!params) return undefined;
   const amount = params.amount ?? params.principal ?? params.assetsMaximum;
   if (amount && Number(amount) > 0) return `${Number(amount).toLocaleString()} ${asset}`;

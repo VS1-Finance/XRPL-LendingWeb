@@ -9,6 +9,7 @@ import type {
 } from "./engine-client";
 import type { SessionConfig, SessionState, SessionSummary } from "./types";
 import { actionLabel, actionDetail } from "./log-format";
+import { currencyLabel } from "./format";
 
 // The action-log row shape returned by GET /sessions/:id/log — raw, unformatted.
 interface EngineLogRow {
@@ -217,8 +218,13 @@ export const httpEngine: EngineClient = {
 
   async getLog(setupId: string): Promise<LogEntry[]> {
     // The engine stores raw action rows; the display label and human-readable detail are formatted
-    // here (the engine keeps the log lean and format-free).
-    const rows = await request<EngineLogRow[]>(`/sessions/${encodeURIComponent(setupId)}/log`);
+    // here (the engine keeps the log lean and format-free). Fetch the summary alongside the log so
+    // amount details are labelled in the vault's real asset (e.g. "500 XRP"), not a hardcoded default.
+    const [rows, summary] = await Promise.all([
+      request<EngineLogRow[]>(`/sessions/${encodeURIComponent(setupId)}/log`),
+      request<EngineSummary>(`/sessions/${encodeURIComponent(setupId)}`),
+    ]);
+    const assetLabel = currencyLabel(summary.asset);
     return rows.map((r) => {
       // Carry the raw magnitude of amount-bearing actions (deposit/withdraw/originate/set-max) onto
       // the entry so the charts can plot real values; leave undefined when the row carries no number.
@@ -234,7 +240,7 @@ export const httpEngine: EngineClient = {
         code: r.code,
         ok: r.code === "tesSUCCESS",
         hash: r.hash,
-        detail: actionDetail(r.params),
+        detail: actionDetail(r.params, assetLabel),
         amount,
       };
     });
