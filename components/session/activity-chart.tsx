@@ -66,7 +66,10 @@ export function ActivityChart({ entries, state }: { entries: LogEntry[]; state: 
         {/* How deployed the pool is: lent out vs. available. */}
         <UtilizationBar total={assetsTotal} lent={lent} available={assetsAvailable} lentPct={lentPct} />
 
-        {/* Event composition — a count per kind. */}
+        {/* Event composition — how many of each action have SETTLED, not amounts. Headed explicitly so
+            a count (e.g. "Deposits 8") reads as eight settled deposit transactions, not a balance —
+            balances live in the stat band and utilization bar above. */}
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Settled actions</div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
           {KINDS.map(({ kind, label, icon: Icon, className }) => {
             const n = counts.get(kind) ?? 0;

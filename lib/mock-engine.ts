@@ -90,13 +90,16 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
     seats.push({ key: `borrower:${i}`, role: "borrower", address: addressFrom(next), occupant: { kind: "bot" } });
 
   const cover = req.coverAmount && req.coverAmount.trim() ? req.coverAmount.trim() : "20000";
+  const asset = req.asset?.trim() || "XRP";
   const summary: SessionSummary = {
     setupId,
     network: "devnet",
+    asset,
+    permissioned,
     seats,
     openSeats: [],
     config: {
-      asset: req.asset?.trim() || "XRP",
+      asset,
       coverAmount: cover,
       paymentInterval: clampInt(req.paymentInterval, 60, 30, 86400),
       scenario: req.scenario?.trim() || "mixed",

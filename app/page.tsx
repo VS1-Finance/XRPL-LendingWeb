@@ -56,10 +56,10 @@ export default function HomePage() {
           {
             title: "Amendments",
             links: [
-              { text: "XLS-70 Credentials", href: "#how" },
-              { text: "XLS-80 Permissioned Domains", href: "#how" },
-              { text: "XLS-65 Single Asset Vault", href: "#how" },
-              { text: "XLS-66 Lending Protocol", href: "#how" },
+              { text: "XLS-70 Credentials", href: "https://xls.xrpl.org/xls/XLS-0070-credentials.html" },
+              { text: "XLS-80 Permissioned Domains", href: "https://xls.xrpl.org/xls/XLS-0080-permissioned-domains.html" },
+              { text: "XLS-65 Single Asset Vault", href: "https://xls.xrpl.org/xls/XLS-0065-single-asset-vault.html" },
+              { text: "XLS-66 Lending Protocol", href: "https://xls.xrpl.org/xls/XLS-0066-lending-protocol.html" },
             ],
           },
           {

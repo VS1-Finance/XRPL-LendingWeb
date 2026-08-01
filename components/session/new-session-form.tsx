@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronDown, Loader2, Boxes, Coins, Bot, SlidersHorizontal, ShieldCheck, Globe, ExternalLink } from "lucide-react";
@@ -23,14 +23,17 @@ const SCENARIOS = [
 
 // The XLS specifications each parameter comes from, linked so a reader can trace a field to the ledger
 // amendment that defines it.
-const XLS_VAULT = { href: "https://github.com/XRPLF/XRPL-Standards/tree/master/XLS-0065d-single-asset-vault", label: "XLS-65" };
-const XLS_LENDING = { href: "https://github.com/XRPLF/XRPL-Standards/tree/master/XLS-0066d-lending-protocol", label: "XLS-66" };
-const XLS_CREDENTIALS = { href: "https://github.com/XRPLF/XRPL-Standards/tree/master/XLS-0070d-credentials", label: "XLS-70" };
-const XLS_DOMAIN = { href: "https://github.com/XRPLF/XRPL-Standards/tree/master/XLS-0080d-permissioned-domains", label: "XLS-80" };
+const XLS_VAULT = { href: "https://xls.xrpl.org/xls/XLS-0065-single-asset-vault.html", label: "XLS-65" };
+const XLS_LENDING = { href: "https://xls.xrpl.org/xls/XLS-0066-lending-protocol.html", label: "XLS-66" };
+const XLS_CREDENTIALS = { href: "https://xls.xrpl.org/xls/XLS-0070-credentials.html", label: "XLS-70" };
+const XLS_DOMAIN = { href: "https://xls.xrpl.org/xls/XLS-0080-permissioned-domains.html", label: "XLS-80" };
 
 export function NewSessionForm() {
   const router = useRouter();
   const [provisioning, setProvisioning] = useState(false);
+  // Synchronous guard against a double-click: `setProvisioning(true)` is async, so two clicks in the
+  // same tick would both pass the disabled check and both fire a provision. The ref flips immediately.
+  const inFlight = useRef(false);
   const [steps, setSteps] = useState<ProvisionStep[]>([]);
   const [scenario, setScenario] = useState("mixed");
   // Permissioned (domain-gated, credentials required) is the default — it leads with the tecNO_AUTH
@@ -60,7 +63,9 @@ export function NewSessionForm() {
     setTemplateId(t.id);
     setPermissioned(t.values.permissioned);
     setScenario(t.values.scenario);
-    setForm((f) => ({ ...f, asset: t.values.asset, depositors: t.values.depositors, borrowers: t.values.borrowers, cover: t.values.cover }));
+    // debtMax defaults to "" when the template omits it, so switching off an XRP preset clears the
+    // preset's ceiling rather than leaking it into the next (e.g. IOU) template.
+    setForm((f) => ({ ...f, asset: t.values.asset, depositors: t.values.depositors, borrowers: t.values.borrowers, cover: t.values.cover, debtMax: t.values.debtMax ?? "" }));
   }
 
   // The chosen goal — its template configures the market and its role is auto-claimed on arrival.
@@ -79,7 +84,28 @@ export function NewSessionForm() {
     return <ProvisioningView label={form.label.trim() || undefined} steps={steps} />;
   }
 
+  // Validate the required fields before touching the ledger. Returns an error message, or null when the
+  // form is provisionable. Pools must be positive whole numbers; cover must be a positive amount.
+  function validate(): string | null {
+    const depositors = Number(form.depositors);
+    const borrowers = Number(form.borrowers);
+    if (!Number.isInteger(depositors) || depositors < 1) return "Depositors must be a whole number of at least 1.";
+    if (!Number.isInteger(borrowers) || borrowers < 1) return "Borrowers must be a whole number of at least 1.";
+    const cover = Number(form.cover);
+    if (!form.cover.trim() || !Number.isFinite(cover) || cover <= 0) return "First-loss cover must be a positive amount.";
+    if (!form.asset.trim()) return "Vault asset is required (use XRP for a native vault).";
+    return null;
+  }
+
   async function provision() {
+    // Reentrancy guard (see `inFlight`): reject a second click while a provision is already running.
+    if (inFlight.current) return;
+    const error = validate();
+    if (error) {
+      toast.error("Check the form", { description: error });
+      return;
+    }
+    inFlight.current = true;
     setProvisioning(true);
     setSteps([]);
     try {
@@ -99,8 +125,11 @@ export function NewSessionForm() {
         },
         (step) => setSteps((prev) => [...prev, step]),
       );
+      // The completion message reflects what was actually stood up: a public vault has no credentials.
       toast.success("Session provisioned", {
-        description: "Accounts, credentials, vault, and cover are live on Devnet.",
+        description: permissioned
+          ? "Accounts, credentials, vault, and cover are live on Devnet."
+          : "Accounts, vault, and cover are live on Devnet.",
       });
       // Carry the goal's role so the session view can auto-claim the matching seat on arrival.
       const claim = claimRole ? `?claim=${encodeURIComponent(claimRole)}` : "";
@@ -108,6 +137,7 @@ export function NewSessionForm() {
     } catch {
       toast.error("Provisioning failed", { description: "Please try again." });
       setProvisioning(false);
+      inFlight.current = false;
     }
   }
 
