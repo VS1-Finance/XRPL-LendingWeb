@@ -81,15 +81,21 @@ export default function FooterSection({
             {columns.map((column) => (
               <FooterColumn key={column.title}>
                 <h3 className="text-md pt-1 font-semibold">{column.title}</h3>
-                {column.links.map((link) => (
-                  <a
-                    key={`${link.href}-${link.text}`}
-                    href={link.href}
-                    className="text-muted-foreground text-sm"
-                  >
-                    {link.text}
-                  </a>
-                ))}
+                {column.links.map((link) => {
+                  // External links (the XLS specs) open in a new tab so the app isn't lost; internal
+                  // links (session, in-page anchors) navigate in place.
+                  const external = link.href.startsWith("http");
+                  return (
+                    <a
+                      key={`${link.href}-${link.text}`}
+                      href={link.href}
+                      className="text-muted-foreground text-sm"
+                      {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
+                    >
+                      {link.text}
+                    </a>
+                  );
+                })}
               </FooterColumn>
             ))}
           </FooterContent>

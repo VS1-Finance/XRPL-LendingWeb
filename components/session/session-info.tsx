@@ -4,7 +4,7 @@ import { ExternalLink, Network, User, Coins, Shield, Clock, Bot } from "lucide-r
 import type { SessionState, SessionSummary } from "@/lib/types";
 import { accountUrl } from "@/lib/client";
 import { seatLabel } from "@/lib/roles";
-import { shortId } from "@/lib/format";
+import { currencyLabel, shortId } from "@/lib/format";
 import { LiveState } from "./live-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +31,8 @@ export function SessionInfo({
             <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4 py-5">
               <Field icon={Network} label="Network" value={summary.network} />
               <Field icon={User} label="You" value={participant} mono />
-              <Field icon={Coins} label="Vault asset" value={cfg.asset} />
-              <Field icon={Shield} label="First-loss cover" value={Number(cfg.coverAmount).toLocaleString()} />
+              <Field icon={Coins} label="Vault asset" value={currencyLabel(cfg.asset)} />
+              <Field icon={Shield} label="First-loss cover" value={coverDisplay(state)} />
               <Field icon={Clock} label="Payment interval" value={`${cfg.paymentInterval}s`} />
               <Field icon={Bot} label="Bot scenario" value={cfg.scenario} capitalize />
               <div className="col-span-2">
@@ -98,6 +98,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </section>
   );
+}
+
+// First-loss cover comes from the live broker on the validated ledger, not the provisioning config —
+// the engine summary doesn't echo the configured cover, and the live figure is the real one. This is
+// the same source the header stat band reads, so the two never disagree.
+function coverDisplay(state: SessionState): string {
+  const cover = state.broker?.coverAvailable;
+  if (cover === undefined || cover === null) return "—";
+  const n = Number(cover);
+  return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : String(cover);
 }
 
 function Field({

@@ -21,6 +21,10 @@ export interface SessionConfig {
 export interface SessionSummary {
   setupId: string;
   network: string;
+  // The vault asset ("XRP" or a currency code) and whether the vault is permissioned — both come
+  // straight from the engine summary, which reads them from the provisioned environment.
+  asset: string;
+  permissioned: boolean;
   seats: SeatSummary[];
   openSeats: string[];
   config: SessionConfig;

@@ -33,16 +33,6 @@ interface EngineLogRow {
 // direct engine URL can still be forced via NEXT_PUBLIC_ENGINE_URL for local, proxy-less debugging.
 const BASE_URL = process.env.NEXT_PUBLIC_ENGINE_URL ?? "/api/engine";
 
-// The engine does not echo the provisioning config on the session summary yet, so a default is
-// synthesised to satisfy the summary type. The Info tab degrades to these defaults until the engine
-// exposes the real config.
-const DEFAULT_CONFIG: SessionConfig = {
-  asset: "RLUSD",
-  coverAmount: "0",
-  paymentInterval: 60,
-  scenario: "mixed",
-};
-
 // The engine's SessionSummary has no config field; everything else matches ours.
 type EngineSummary = Omit<SessionSummary, "config">;
 
@@ -76,8 +66,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+// The engine summary carries the real vault asset but not the broker/timing config, so we build the
+// config block from the summary's own asset (never a hardcoded currency) and leave the values the
+// engine doesn't expose as best-effort. The Info tab reads live cover from state rather than this
+// coverAmount, so it always shows the real figure regardless of what's here.
 function withConfig(summary: EngineSummary): SessionSummary {
-  return { ...summary, config: DEFAULT_CONFIG };
+  return {
+    ...summary,
+    config: {
+      asset: summary.asset,
+      coverAmount: "0",
+      paymentInterval: 60,
+      scenario: "mixed",
+    },
+  };
 }
 
 // Provisions a session over the SSE endpoint, forwarding each `step` event to onStep and resolving

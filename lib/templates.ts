@@ -14,6 +14,10 @@ export interface Template {
     borrowers: string;
     cover: string;
     scenario: string;
+    // Loan ceiling. Set on XRP presets to a faucet-realistic amount: an XRP vault funds each holder
+    // this much real liquidity, so leaving it to the engine's large default makes provisioning glacial.
+    // Omitted on IOU presets, whose liquidity is minted rather than funded.
+    debtMax?: string;
   };
 }
 
@@ -49,7 +53,7 @@ export const TEMPLATES: Template[] = [
     id: "simple",
     label: "Simple pool",
     summary: "Native XRP, open to anyone, a tiny pool. The fastest way to see a deposit settle.",
-    values: { asset: "XRP", permissioned: false, depositors: "1", borrowers: "1", cover: "500", scenario: "calm" },
+    values: { asset: "XRP", permissioned: false, depositors: "1", borrowers: "1", cover: "500", scenario: "calm", debtMax: "500" },
   },
   {
     id: "permissioned",
@@ -61,6 +65,6 @@ export const TEMPLATES: Template[] = [
     id: "stress",
     label: "Stress test",
     summary: "A larger permissioned XRP pool weighted toward defaults, to exercise the loss path.",
-    values: { asset: "XRP", permissioned: true, depositors: "3", borrowers: "3", cover: "3000", scenario: "defaults" },
+    values: { asset: "XRP", permissioned: true, depositors: "3", borrowers: "3", cover: "3000", scenario: "defaults", debtMax: "1000" },
   },
 ];
