@@ -18,6 +18,7 @@ export default function HomePage() {
             <span className="text-muted-foreground">XRP Ledger reference implementation</span>
             <span className="flex items-center gap-1 font-mono text-xs">
               XLS-70 · 80 · 65 · 66
+              <span className="text-muted-foreground">+ 56</span>
               <ArrowRight className="size-3" />
             </span>
           </Badge>

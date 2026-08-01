@@ -31,7 +31,7 @@ const features = [
   {
     icon: Layers,
     title: "Four amendments, composed",
-    body: "Credentials, Permissioned Domains, the Single Asset Vault, and the Lending Protocol interlock into one working system.",
+    body: "Credentials, Permissioned Domains, the Single Asset Vault, and the Lending Protocol interlock into one working system — stood up atomically with XLS-56 Batch, so cross-account setup either fully lands or not at all.",
   },
 ];
 
