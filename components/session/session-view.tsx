@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import type { LogEntry, SessionBalances } from "@/lib/engine-client";
 import type { SessionState, SessionSummary } from "@/lib/types";
 import { engine } from "@/lib/client";
+import { currencyLabel } from "@/lib/format";
 import { useParticipant } from "@/lib/identity";
 import { ledgerMessage } from "@/lib/ledger-codes";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -178,7 +179,7 @@ export function SessionView({ setupId }: { setupId: string }) {
         onToggleBots={toggleBots}
       />
 
-      <StatBand state={state} mySeat={mySeat} />
+      <StatBand state={state} mySeat={mySeat} asset={currencyLabel(summary.asset)} />
 
       {/* The stat band above stays visible for both views; the tabs switch the working area. The
           activity log gets its own full-width tab so its wide table is never cramped. */}

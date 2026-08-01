@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 export function StatBand({
   state,
   mySeat,
-  asset = "RLUSD",
+  asset = "XRP",
 }: {
   state: SessionState;
   mySeat: SeatSummary | undefined;
