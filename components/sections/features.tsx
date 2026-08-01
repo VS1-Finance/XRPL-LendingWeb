@@ -30,8 +30,8 @@ const features = [
   },
   {
     icon: Layers,
-    title: "Four amendments, composed",
-    body: "Credentials, Permissioned Domains, the Single Asset Vault, and the Lending Protocol interlock into one working system — stood up atomically with XLS-56 Batch, so cross-account setup either fully lands or not at all.",
+    title: "Atomic setup — XLS-56 Batch",
+    body: "The cross-account steps that stand the market up — a member's credential handshake, a holder's trust line and distribution — each commit as one all-or-nothing Batch transaction. The market is never left half-provisioned.",
   },
 ];
 
@@ -44,8 +44,8 @@ export function Features() {
             A complete lending market, enforced on-ledger
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Four amendments composed into one working market, with protocol-level guarantees at every
-            step.
+            Five amendments composed into one working market — identity, gating, capital, origination,
+            and the atomic setup that binds them — with protocol-level guarantees at every step.
           </p>
         </div>
 

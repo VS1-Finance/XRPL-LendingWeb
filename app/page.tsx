@@ -12,13 +12,12 @@ export default function HomePage() {
     <main className="flex-1">
       <Hero
         title="Permissioned lending on the XRP Ledger"
-        description="A credential-gated lending market composed from four ledger amendments. Take any role yourself; deterministic bots keep the market alive around you."
+        description="A credential-gated lending market composed from five ledger amendments — including XLS-56 Batch, which commits its cross-account setup atomically. Take any role yourself; deterministic bots keep the market alive around you."
         badge={
           <Badge variant="outline" className="animate-appear gap-2">
             <span className="text-muted-foreground">XRP Ledger reference implementation</span>
             <span className="flex items-center gap-1 font-mono text-xs">
-              XLS-70 · 80 · 65 · 66
-              <span className="text-muted-foreground">+ 56</span>
+              XLS-70 · 80 · 65 · 66 · 56
               <ArrowRight className="size-3" />
             </span>
           </Badge>
@@ -36,7 +35,7 @@ export default function HomePage() {
 
       <Stats
         items={[
-          { label: "composed of", value: 4, description: "ledger amendments" },
+          { label: "composed of", value: 5, description: "ledger amendments" },
           { label: "playable", value: 5, suffix: " roles", description: "any of which a human can assume" },
           { label: "settled on", value: 1, suffix: " ledger", description: "the XRP Ledger Devnet" },
           { label: "enforcement", value: 100, suffix: "%", description: "on-ledger, not in application code" },
@@ -61,6 +60,7 @@ export default function HomePage() {
               { text: "XLS-80 Permissioned Domains", href: "https://xls.xrpl.org/xls/XLS-0080-permissioned-domains.html" },
               { text: "XLS-65 Single Asset Vault", href: "https://xls.xrpl.org/xls/XLS-0065-single-asset-vault.html" },
               { text: "XLS-66 Lending Protocol", href: "https://xls.xrpl.org/xls/XLS-0066-lending-protocol.html" },
+              { text: "XLS-56 Batch", href: "https://xls.xrpl.org/xls/XLS-0056-batch.html" },
             ],
           },
           {
