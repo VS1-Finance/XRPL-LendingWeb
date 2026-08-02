@@ -14,17 +14,10 @@ interface CTAProps {
   className?: string;
 }
 
-const DEFAULT_CTA_BUTTONS: CTAButtonProps[] = [
-  {
-    href: "https://www.launchuicomponents.com/",
-    text: "Get Started",
-    variant: "default",
-  },
-];
-
+// Neutral default: the page passes its own title and buttons. No placeholder marketing links.
 export default function CTA({
-  title = "Start building",
-  buttons = DEFAULT_CTA_BUTTONS,
+  title = "",
+  buttons = false,
   className,
 }: CTAProps) {
   return (
