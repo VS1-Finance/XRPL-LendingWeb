@@ -33,37 +33,10 @@ interface FooterProps {
 
 export default function FooterSection({
   logo = <LaunchUI />,
-  name = "Launch UI",
-  columns = [
-    {
-      title: "Product",
-      links: [
-        { text: "Changelog", href: "https://www.launchuicomponents.com/" },
-        { text: "Documentation", href: "https://www.launchuicomponents.com/" },
-      ],
-    },
-    {
-      title: "Company",
-      links: [
-        { text: "About", href: "https://www.launchuicomponents.com/" },
-        { text: "Careers", href: "https://www.launchuicomponents.com/" },
-        { text: "Blog", href: "https://www.launchuicomponents.com/" },
-      ],
-    },
-    {
-      title: "Contact",
-      links: [
-        { text: "Discord", href: "https://www.launchuicomponents.com/" },
-        { text: "Twitter", href: "https://www.launchuicomponents.com/" },
-        { text: "GitHub", href: "https://www.launchuicomponents.com/" },
-      ],
-    },
-  ],
-  copyright = "© 2026 Mikołaj Dobrucki. All rights reserved",
-  policies = [
-    { text: "Privacy Policy", href: "https://www.launchuicomponents.com/" },
-    { text: "Terms of Service", href: "https://www.launchuicomponents.com/" },
-  ],
+  name = "XRPL Permissioned Lending",
+  columns = [],
+  copyright = "",
+  policies = [],
   showModeToggle = true,
   className,
 }: FooterProps) {

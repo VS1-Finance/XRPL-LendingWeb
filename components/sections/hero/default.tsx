@@ -1,14 +1,10 @@
-import { ArrowRightIcon } from "lucide-react";
 import { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-import Github from "../../logos/github";
-import { Badge } from "../../ui/badge";
 import Glow from "../../ui/glow";
 import { LinkButton, type LinkButtonProps } from "../../ui/link-button";
 import { Mockup, MockupFrame } from "../../ui/mockup";
-import Screenshot from "../../ui/screenshot";
 import { Section } from "../../ui/section";
 
 interface HeroButtonProps extends Omit<LinkButtonProps, "children"> {
@@ -24,50 +20,15 @@ interface HeroProps {
   className?: string;
 }
 
-const DEFAULT_HERO_BUTTONS: HeroButtonProps[] = [
-  {
-    href: "https://www.launchuicomponents.com/",
-    text: "Get Started",
-    variant: "default",
-  },
-  {
-    href: "https://www.launchuicomponents.com/",
-    text: "GitHub",
-    variant: "glow",
-    icon: <Github className="mr-2 size-4" />,
-  },
-];
-
-const DEFAULT_HERO_BADGE = (
-  <Badge variant="outline" className="animate-appear">
-    <span className="text-muted-foreground">
-      New version of Launch UI is out!
-    </span>
-    <a href="https://www.launchuicomponents.com/" className="flex items-center gap-1">
-      Get started
-      <ArrowRightIcon className="size-3" />
-    </a>
-  </Badge>
-);
-
-const DEFAULT_HERO_MOCKUP = (
-  <Screenshot
-    srcLight="/placeholder-light.svg"
-    srcDark="/placeholder-dark.svg"
-    alt="Launch UI app screenshot"
-    width={1248}
-    height={765}
-    loading="eager"
-    className="w-full"
-  />
-);
-
+// Defaults are intentionally neutral: every page that renders this Hero passes its own title,
+// description, badge, buttons, and mockup. The empty defaults keep the component self-contained
+// without shipping placeholder marketing copy.
 export default function Hero({
-  title = "Give your big idea the design it deserves",
-  description = "Professionally designed blocks and templates built with React, Shadcn/ui and Tailwind that will help your product stand out.",
-  mockup = DEFAULT_HERO_MOCKUP,
-  badge = DEFAULT_HERO_BADGE,
-  buttons = DEFAULT_HERO_BUTTONS,
+  title = "",
+  description = "",
+  mockup = false,
+  badge = false,
+  buttons = false,
   className,
 }: HeroProps) {
   return (

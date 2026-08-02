@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# XRPL Permissioned Lending — Web App
 
-## Getting Started
+The front end for the [XRPL Permissioned Lending reference implementation](https://github.com/VS1-Finance/XRPL-LendingReference): a browser UI for provisioning a credential-gated lending market on the XRP Ledger, taking any participant role yourself, and watching deterministic bots keep the market alive around you.
 
-First, run the development server:
+It is a [Next.js](https://nextjs.org) app that talks to the lending engine over HTTP — or runs entirely against an in-memory mock, so the UI is fully reviewable with no engine running.
+
+## Running
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open <http://localhost:3000>. With no configuration, the app uses the in-memory mock engine — every screen and flow works, backed by fake data.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Connecting to a live engine
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The client picks its backend from two environment variables (`lib/client.ts`):
 
-## Learn More
+| Variable | Effect |
+|----------|--------|
+| `NEXT_PUBLIC_USE_ENGINE` | When set, the app talks to a real engine via the same-origin `/api/engine` proxy (no CORS). |
+| `NEXT_PUBLIC_ENGINE_URL` | An explicit engine base URL, if you want to bypass the proxy. |
 
-To learn more about Next.js, take a look at the following resources:
+If neither is set, the app falls back to the in-memory mock. This is the default for local review.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To run against a live engine locally, start the [engine](https://github.com/VS1-Finance/XRPL-LendingReference) on port 4000 and set `NEXT_PUBLIC_USE_ENGINE=1` (the `/api/engine` proxy forwards to it).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Documentation
 
-## Deploy on Vercel
+Full protocol and architecture documentation lives in the [reference docs](https://github.com/VS1-Finance/XRPL-LendingDocs).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
