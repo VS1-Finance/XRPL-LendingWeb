@@ -25,6 +25,7 @@ const MESSAGES: Record<string, string> = {
   tecUNFUNDED: "Unfunded — not enough balance to cover this transaction.",
   tecUNFUNDED_PAYMENT: "Insufficient balance to make this payment.",
   tecPATH_DRY: "No liquidity available to complete this at the moment.",
+  tecLIMIT_EXCEEDED: "Over the vault's lending limit — the principal exceeds available liquidity or first-loss cover. Request a smaller amount.",
 
   // Loans and objects.
   tecNO_ENTRY: "No matching ledger entry — the loan or object does not exist (or is already closed).",

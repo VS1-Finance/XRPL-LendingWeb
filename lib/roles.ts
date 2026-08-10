@@ -16,7 +16,7 @@ export const UI_ROLES: UiRoleDef[] = [
   { id: "depositor", label: "Depositor", seatRole: "depositor", description: "Supplies liquidity to the vault and holds yield-bearing shares." },
   { id: "vault-manager", label: "Vault Manager", seatRole: "owner", description: "Configures the vault and the permissioned domain." },
   { id: "loan-originator", label: "Loan Originator", seatRole: "owner", description: "Originates loans against vault liquidity." },
-  { id: "borrower", label: "Borrower", seatRole: "borrower", description: "Draws a loan and repays it over its term." },
+  { id: "borrower", label: "Borrower", seatRole: "borrower", description: "Requests a loan against vault liquidity and repays it over its term." },
 ];
 
 export function roleForSeat(seatRole: string): UiRoleDef | undefined {
@@ -37,7 +37,7 @@ export function roleDescription(seatRole: string): string {
     case "owner":
       return "Owns the vault and the loan broker on one account — configuring the vault and permissioned domain, originating loans against vault liquidity, and defaulting delinquent ones.";
     case "borrower":
-      return "Draws a loan against vault liquidity and repays it over its term. Missing payments lets the loan be defaulted, drawing on first-loss cover.";
+      return "Draws a loan against vault liquidity and repays it over its term — you can request a loan, which the broker's owner account signs on your behalf. Missing payments lets the loan be defaulted, drawing on first-loss cover.";
     default:
       return "";
   }

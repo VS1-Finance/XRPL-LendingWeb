@@ -162,6 +162,10 @@ function toEngineAction(req: ActionRequest): ActionRequest {
     case "originate":
       // Origination is bilateral; the engine takes the borrower seat and the principal.
       return { seat: req.seat, action: "originate", params: rename(params, "amount", "principal") };
+    case "request-loan":
+      // Borrower-initiated: same principal mapping as originate, but the borrower is the acting seat —
+      // no separate borrower param.
+      return { seat: req.seat, action: "request-loan", params: rename(params, "amount", "principal") };
     default:
       // deposit, withdraw, repay, issue-credential, revoke-credential, manage-loan pass through with
       // their params already keyed as the engine expects (amount, loanId, subject, borrower, ...).
