@@ -551,6 +551,113 @@ function CredentialIssuerActions({ allSeats, onAct }: { allSeats: SeatSummary[];
   );
 }
 
+// Origination collects the full loan terms — principal, interest rate, payment interval, grace period,
+// and term (number of payments) — and dual-signs a LoanSet. The rate is entered as a human percent and
+// converted to the ledger's 1/10th-bp scale (100000 = 100%) before sending, matching the broker-rate
+// fields on the new-session form. Term is optional: blank omits PaymentTotal so the ledger derives the
+// schedule, exactly as today. Defaults (50% / 60s / 60s / blank) reproduce the engine's current
+// defaults, so an untouched form originates a loan identical to before.
+function OriginateForm({ state, onAct }: { state: SessionState; onAct: ActFn }) {
+  const choices = borrowerChoices(state.seats);
+  const [borrower, setBorrower] = useState("");
+  const [amount, setAmount] = useState("");
+  const [ratePct, setRatePct] = useState("50");
+  const [interval, setIntervalValue] = useState("60");
+  const [grace, setGrace] = useState("60");
+  const [term, setTerm] = useState("");
+  const [pending, setPending] = useState(false);
+  const [result, setResult] = useState<ActionResult | null>(null);
+
+  const selected = borrower || (choices.length === 1 ? choices[0].value : "");
+  const intervalN = Number(interval);
+  const graceN = Number(grace);
+  const ratePctN = Number(ratePct);
+  // Mirror the ledger's LoanSet validation client-side so bad terms are blocked before a round-trip
+  // rather than returning an opaque temMALFORMED/temINVALID. Rate 0..100% (0..100000 scaled), interval
+  // >= 60s, grace <= interval, term (if given) a positive whole number.
+  const errors: string[] = [];
+  if (!(ratePctN >= 0 && ratePctN <= 100)) errors.push("Interest rate must be between 0% and 100%.");
+  if (!(intervalN >= 60)) errors.push("Payment interval must be at least 60 seconds.");
+  if (!(graceN <= intervalN)) errors.push("Grace period cannot exceed the payment interval.");
+  if (term.trim() && !(Number.isInteger(Number(term)) && Number(term) > 0))
+    errors.push("Term must be a positive whole number of payments.");
+  const ready = Boolean(selected) && amount.trim().length > 0 && errors.length === 0;
+
+  async function submit() {
+    if (!ready || pending) return;
+    setPending(true);
+    setResult(null);
+    const params: Record<string, string> = {
+      borrower: selected,
+      amount: amount.trim(),
+      interestRate: String(Math.round(ratePctN * 1000)),
+      interval: interval.trim(),
+      grace: grace.trim(),
+    };
+    if (term.trim()) params.paymentTotal = term.trim();
+    const res = await onAct("originate", params);
+    setResult(res);
+    setPending(false);
+    if (res.ok) setAmount("");
+  }
+
+  if (choices.length === 0) {
+    return (
+      <div className="space-y-1.5">
+        <Label>Originate a loan</Label>
+        <p className="text-xs text-muted-foreground">No borrowers in this session.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label>Originate a loan</Label>
+      <Select value={selected} onValueChange={(v) => { setBorrower(v); setResult(null); }} disabled={pending}>
+        <SelectTrigger className="h-9 w-full">
+          <SelectValue placeholder="Select a borrower" className="truncate" />
+        </SelectTrigger>
+        <SelectContent>
+          {choices.map((c) => (
+            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input
+        className="h-9"
+        placeholder="Principal"
+        value={amount}
+        disabled={pending}
+        onChange={(e) => setAmount(e.target.value)}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">Interest rate (%)</span>
+          <Input className="h-8" type="number" min={0} max={100} value={ratePct} disabled={pending} onChange={(e) => setRatePct(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">Term (# payments)</span>
+          <Input className="h-8" type="number" min={1} placeholder="Ledger default" value={term} disabled={pending} onChange={(e) => setTerm(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">Payment interval (s)</span>
+          <Input className="h-8" type="number" min={60} value={interval} disabled={pending} onChange={(e) => setIntervalValue(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">Grace period (s)</span>
+          <Input className="h-8" type="number" min={0} value={grace} disabled={pending} onChange={(e) => setGrace(e.target.value)} />
+        </div>
+      </div>
+      <Button className="w-full" disabled={pending || !ready} onClick={submit}>
+        {pending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+        Originate
+      </Button>
+      {errors.length > 0 && <p className="text-xs text-destructive">{errors[0]}</p>}
+      <ResultLine result={result} />
+    </div>
+  );
+}
+
 function OwnerActions({ state, onAct }: { state: SessionState; onAct: ActFn }) {
   const activeLoans = state.loans.filter((l) => !l.defaulted && l.paymentRemaining > 0);
   // Only loans that are actually delinquent (overdue past grace) can be defaulted — offering others
@@ -576,25 +683,11 @@ function OwnerActions({ state, onAct }: { state: SessionState; onAct: ActFn }) {
       </Section>
 
       <Section title="Loan Originator" hint="Lend vault liquidity to borrowers, and default loans that fall delinquent.">
-        <SelectActionRow
-          label="Originate a loan"
-          choices={borrowerChoices(state.seats)}
-          choiceParam="borrower"
-          choicePlaceholder="Select a borrower"
-          amountParam="amount"
-          amountPlaceholder="Principal"
-          secondaryParam="interval"
-          secondaryLabel="Payment interval (s)"
-          secondaryPlaceholder="60"
-          secondaryDefault="60"
-          cta="Originate"
-          action="originate"
-          onAct={onAct}
-          emptyHint="No borrowers in this session."
-        />
+        <OriginateForm state={state} onAct={onAct} />
         <p className="text-xs text-muted-foreground">
-          Origination is bilateral — the borrower counter-signs the same transaction. Payment interval
-          sets how often the loan is due.
+          Origination is bilateral — the borrower counter-signs the same transaction. Interest rate,
+          payment interval, and grace period set the loan&apos;s terms; leave Term blank to let the
+          ledger derive the payment schedule.
         </p>
         <ActionRow
           label="Deposit first-loss cover"

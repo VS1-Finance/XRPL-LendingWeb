@@ -38,6 +38,14 @@ interface Session {
 const MOCK_SHARE_SCALE = 6;
 const shareUnitsPerAsset = 10 ** MOCK_SHARE_SCALE;
 
+// The loan term (PaymentTotal) drives paymentRemaining. Blank/absent → 1 payment, the mock's default
+// single-payment demo loan; a positive integer sets the number of scheduled payments, matching the
+// live engine so mock-mode UI and live UI agree.
+function mockTerm(value: string | undefined): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
+
 const sessions = new Map<string, Session>();
 
 // A deterministic pseudo-random stream seeded per session, so provisioning and hashes are stable
@@ -290,7 +298,7 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
         borrower: borrowerSeat?.address ?? addressFrom(next),
         principalOutstanding: String(amount),
         totalOutstanding: String(Math.round(amount * 1.0114 * 100) / 100),
-        paymentRemaining: 1,
+        paymentRemaining: mockTerm(req.params?.paymentTotal),
         defaulted: false,
         // A freshly originated loan is not yet delinquent — mirrors the ledger's grace window before a
         // default is allowed. The mock uses a fixed window so the "defaultable in ~2m" hint appears.
@@ -315,7 +323,7 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
         borrower: seat.address,
         principalOutstanding: String(amount),
         totalOutstanding: String(Math.round(amount * 1.0114 * 100) / 100),
-        paymentRemaining: 1,
+        paymentRemaining: mockTerm(req.params?.paymentTotal),
         defaulted: false,
         defaultableNow: false,
         defaultableInSeconds: 120,
