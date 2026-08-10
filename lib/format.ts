@@ -40,3 +40,41 @@ export function currencyLabel(code: string): string {
   }
   return out || code;
 }
+
+// Vault shares mint at ~1e6 base units per whole asset for XRP/MPT vaults (Vault.Scale=0 but the
+// share MPT is minted at scale 6); IOU vaults mint at vault.Scale. This constant is only needed for a
+// standalone human-readable share price — position value uses a scale-invariant ratio and needs none.
+const XRP_SHARE_SCALE = 6;
+
+// A holder's position value in whole asset units: (holderShares / sharesTotal) * assetsTotal. This
+// ratio is scale-invariant — holderShares and sharesTotal share the same base-unit scale, so it
+// cancels. Returns null when the vault has no shares (fresh vault) so callers show "—" not a divide
+// by zero, and null on any non-finite input.
+export function positionValue(shares: string, sharesTotal: string, assetsTotal: string): number | null {
+  const held = Number(shares);
+  const total = Number(sharesTotal);
+  const assets = Number(assetsTotal);
+  if (!Number.isFinite(held) || !Number.isFinite(total) || !Number.isFinite(assets) || total <= 0) return null;
+  return (held / total) * assets;
+}
+
+// A human-readable share price: whole asset units per one whole share. Normalizes raw share base
+// units to whole shares by the share scale (IOU vaults use vault.Scale; XRP/MPT use 6). Returns null
+// on a fresh/empty vault (no shares or no assets) so callers render "—".
+export function sharePrice(assetsTotal: string, sharesTotal: string, scale?: number): number | null {
+  const assets = Number(assetsTotal);
+  const rawShares = Number(sharesTotal);
+  if (!Number.isFinite(assets) || !Number.isFinite(rawShares) || rawShares <= 0) return null;
+  const shareScale = scale && scale > 0 ? scale : XRP_SHARE_SCALE;
+  const wholeShares = rawShares / 10 ** shareScale;
+  if (wholeShares <= 0) return null;
+  return assets / wholeShares;
+}
+
+// Unrealized yield of a current position: its value now minus the par basis of the shares held
+// (par = 1.0 per whole share). Both inputs are whole asset units. Returns null when either is null.
+// This is CURRENT unrealized yield, not lifetime P&L.
+export function earned(positionValue: number | null, parBasis: number | null): number | null {
+  if (positionValue == null || parBasis == null) return null;
+  return positionValue - parBasis;
+}

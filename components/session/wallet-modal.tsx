@@ -2,6 +2,7 @@
 
 import { Wallet, ExternalLink } from "lucide-react";
 import type { SessionBalances } from "@/lib/engine-client";
+import type { SessionState } from "@/lib/types";
 import { accountUrl } from "@/lib/client";
 import { shortId } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { WalletFigures } from "./wallet-panel";
 // A wallet-icon button on a seat that opens that seat's live balances. It reads from the session's
 // polled balances payload, so while open it reflects the latest poll — a deposit settling elsewhere
 // updates it within a cycle.
-export function WalletModal({ seatKey, label, balances, asset }: { seatKey: string; label: string; balances: SessionBalances | null; asset: string }) {
+export function WalletModal({ seatKey, label, balances, asset, vault }: { seatKey: string; label: string; balances: SessionBalances | null; asset: string; vault: SessionState["vault"] }) {
   const balance = balances?.accounts.find((a) => a.seat === seatKey);
   return (
     <Dialog>
@@ -34,7 +35,7 @@ export function WalletModal({ seatKey, label, balances, asset }: { seatKey: stri
             >
               {shortId(balance.address)} <ExternalLink className="h-3 w-3" />
             </a>
-            <WalletFigures balance={balance} asset={asset} />
+            <WalletFigures balance={balance} asset={asset} vault={vault} />
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No balance data yet.</p>

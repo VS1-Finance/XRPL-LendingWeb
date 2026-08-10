@@ -28,7 +28,15 @@ interface Session {
   // Subjects the issuer has issued a credential to that has not yet been accepted. Pending until the
   // subject accepts, at which point they move to `credentialed`.
   pending: Set<string>;
+  // Vault shares held per depositor address, in raw base units at share scale 6 (mirroring an XRP/MPT
+  // vault). Minted 1:1 with the asset on deposit, burned on withdraw, so mock mode surfaces a real
+  // position value and earned yield rather than falling back to raw shares.
+  shares: Map<string, number>;
 }
+
+// Mock vaults mint shares at scale 6, matching an XRP/MPT vault's ~1e6 base units per whole asset.
+const MOCK_SHARE_SCALE = 6;
+const shareUnitsPerAsset = 10 ** MOCK_SHARE_SCALE;
 
 const sessions = new Map<string, Session>();
 
@@ -109,8 +117,8 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
 
   const state: SessionState = {
     setupId,
-    vault: { assetsTotal: "0", assetsAvailable: "0", shareMptId: `000000${idFrom(next).toUpperCase()}${hashFrom(next).slice(0, 34)}` },
-    broker: { coverAvailable: cover },
+    vault: { assetsTotal: "0", assetsAvailable: "0", shareMptId: `000000${idFrom(next).toUpperCase()}${hashFrom(next).slice(0, 34)}`, sharesTotal: "0", lossUnrealized: "0", scale: 0 },
+    broker: { coverAvailable: cover, debtTotal: "0", debtMaximum: "0", managementFeeRate: 0, coverRateMinimum: 0, coverRateLiquidation: 0 },
     loans: [],
     seats: seats.map((s) => ({ key: s.key, occupant: s.occupant.kind, participant: s.occupant.id })),
     credentials: [],
@@ -118,7 +126,7 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
 
   const credentialed = new Set<string>(seats.map((s) => s.address));
 
-  return { summary, state, log: [], seq: 0, botsRunning: false, credentialed, pending: new Set<string>() };
+  return { summary, state, log: [], seq: 0, botsRunning: false, credentialed, pending: new Set<string>(), shares: new Map<string, number>() };
 }
 
 function syncSeats(session: Session) {
@@ -204,8 +212,17 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
       if (!session.credentialed.has(seat.address)) return { code: "tecNO_AUTH", ok: false };
       if (amount <= 0) return { code: "temBAD_AMOUNT", ok: false };
       if (vault) {
-        vault.assetsTotal = String(num(vault.assetsTotal) + amount);
+        // Mint shares at the current share price (sharesTotal / assetsTotal), so a deposit into a vault
+        // that has already earned yield mints proportionally fewer shares. The first deposit mints 1:1.
+        const assetsBefore = num(vault.assetsTotal);
+        const sharesBefore = num(vault.sharesTotal ?? "0");
+        const minted = assetsBefore > 0 && sharesBefore > 0
+          ? (amount / assetsBefore) * sharesBefore
+          : amount * shareUnitsPerAsset;
+        vault.assetsTotal = String(assetsBefore + amount);
         vault.assetsAvailable = String(num(vault.assetsAvailable) + amount);
+        vault.sharesTotal = String(sharesBefore + minted);
+        session.shares.set(seat.address, (session.shares.get(seat.address) ?? 0) + minted);
       }
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
@@ -213,8 +230,14 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
       if (amount <= 0) return { code: "temBAD_AMOUNT", ok: false };
       if (vault && num(vault.assetsAvailable) < amount) return { code: "tecINSUFFICIENT_FUNDS", ok: false };
       if (vault) {
-        vault.assetsTotal = String(num(vault.assetsTotal) - amount);
+        // Burn shares worth the withdrawn asset at the current share price, mirroring the mint on deposit.
+        const assetsBefore = num(vault.assetsTotal);
+        const sharesBefore = num(vault.sharesTotal ?? "0");
+        const burned = assetsBefore > 0 && sharesBefore > 0 ? (amount / assetsBefore) * sharesBefore : 0;
+        vault.assetsTotal = String(assetsBefore - amount);
         vault.assetsAvailable = String(num(vault.assetsAvailable) - amount);
+        vault.sharesTotal = String(Math.max(0, sharesBefore - burned));
+        session.shares.set(seat.address, Math.max(0, (session.shares.get(seat.address) ?? 0) - burned));
       }
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
@@ -308,11 +331,18 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
         ? session.state.loans.find((l) => l.loanId === loanId && !l.defaulted && l.paymentRemaining > 0)
         : session.state.loans.find((l) => !l.defaulted && l.paymentRemaining > 0 && l.borrower === seat.address);
       if (!loan) return { code: "tecNO_ENTRY", ok: false };
-      const returned = num(loan.principalOutstanding) + amount;
+      const principal = num(loan.principalOutstanding);
+      // Interest earned on this loan = the outstanding total above principal. Repaying it returns the
+      // principal to available liquidity and credits the interest to the vault's total assets, so the
+      // share price rises above par — this is the yield depositors see as "earned".
+      const interest = Math.max(0, num(loan.totalOutstanding) - principal);
       loan.paymentRemaining = Math.max(0, loan.paymentRemaining - 1);
       loan.principalOutstanding = "0";
       loan.totalOutstanding = "0";
-      if (vault) vault.assetsAvailable = String(num(vault.assetsAvailable) + returned);
+      if (vault) {
+        vault.assetsAvailable = String(num(vault.assetsAvailable) + principal + interest);
+        vault.assetsTotal = String(num(vault.assetsTotal) + interest);
+      }
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
     case "manage-loan": {
@@ -325,7 +355,15 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
       loan.defaulted = true;
       const loss = num(loan.totalOutstanding);
       if (session.state.broker) {
-        session.state.broker.coverAvailable = String(Math.max(0, num(session.state.broker.coverAvailable) - loss));
+        const cover = num(session.state.broker.coverAvailable);
+        // First-loss cover absorbs the default up to what it holds; any shortfall beyond cover becomes
+        // the vault's unrealized loss, which the broker book surfaces as "Defaults absorbed".
+        session.state.broker.coverAvailable = String(Math.max(0, cover - loss));
+        const shortfall = Math.max(0, loss - cover);
+        if (vault && shortfall > 0) {
+          vault.lossUnrealized = String(num(vault.lossUnrealized ?? "0") + shortfall);
+          vault.assetsTotal = String(Math.max(0, num(vault.assetsTotal) - shortfall));
+        }
       }
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
@@ -448,7 +486,8 @@ export const mockEngine: EngineClient = {
     return {
       asset: session.summary.config.asset,
       accounts: session.summary.seats.map((s) => ({
-        seat: s.key, role: s.role, address: s.address, xrp: "100", assetHeld: "0", shares: "0",
+        seat: s.key, role: s.role, address: s.address, xrp: "100", assetHeld: "0",
+        shares: String(session.shares.get(s.address) ?? 0),
       })),
     };
   },

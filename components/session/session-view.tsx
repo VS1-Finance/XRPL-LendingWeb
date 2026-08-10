@@ -21,6 +21,7 @@ import { ActivityCharts, type HistoryPoint } from "./activity-charts";
 import { SessionInfo } from "./session-info";
 import { SessionNotFound } from "./session-not-found";
 import { WalletPanel } from "./wallet-panel";
+import { BrokerBook } from "./broker-book";
 
 // The session orchestrator. It owns the participant identity and every call to the engine client:
 // loading the session, polling live state and the transaction log, claiming and releasing seats, and
@@ -211,6 +212,7 @@ export function SessionView({ setupId }: { setupId: string }) {
                   onAddParticipant={addParticipant}
                   balances={balances}
                   asset={asset}
+                  vault={state.vault}
                 />
               </section>
             </div>
@@ -220,7 +222,8 @@ export function SessionView({ setupId }: { setupId: string }) {
               <section className="space-y-3 lg:sticky lg:top-20">
                 <SectionLabel>Act</SectionLabel>
                 <RolePanel seat={mySeat} state={state} allSeats={seats} onAct={act} />
-                <WalletPanel balance={myBalance} asset={asset} />
+                <WalletPanel balance={myBalance} asset={asset} vault={state.vault} />
+                {mySeat?.role === "owner" && <BrokerBook state={state} asset={asset} />}
               </section>
             </div>
           </div>
