@@ -278,6 +278,29 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
       if (vault) vault.assetsAvailable = String(num(vault.assetsAvailable) - amount);
       return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
     }
+    case "request-loan": {
+      // Borrower-initiated: the acting seat is the borrower; the owner signs on their behalf. One loan
+      // per borrower at a time, mirroring the engine guard. Over-cap resolves to the same ledger code as
+      // owner-initiated origination, since both submit the identical LoanSet — verified live on Devnet.
+      if (amount <= 0) return { code: "temBAD_AMOUNT", ok: false };
+      if (vault && num(vault.assetsAvailable) < amount) return { code: "tecINSUFFICIENT_FUNDS", ok: false };
+      if (session.state.loans.some((l) => l.borrower === seat.address && !l.defaulted)) {
+        return { code: "tecDUPLICATE", ok: false };
+      }
+      const loan: LoanState = {
+        loanId: hashFrom(next),
+        borrower: seat.address,
+        principalOutstanding: String(amount),
+        totalOutstanding: String(Math.round(amount * 1.0114 * 100) / 100),
+        paymentRemaining: 1,
+        defaulted: false,
+        defaultableNow: false,
+        defaultableInSeconds: 120,
+      };
+      session.state.loans.push(loan);
+      if (vault) vault.assetsAvailable = String(num(vault.assetsAvailable) - amount);
+      return { code: "tesSUCCESS", ok: true, hash: hashFrom(next) };
+    }
     case "repay": {
       // The borrower names the loan to repay.
       const loanId = req.params?.loanId;

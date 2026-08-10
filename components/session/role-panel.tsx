@@ -438,6 +438,13 @@ function BorrowerActions({
   // outstanding balance, because the ledger rejects a payment below the amount due.
   const myLoans = state.loans.filter((l) => l.borrower === seat.address && !l.defaulted);
   const outstandingByLoan = Object.fromEntries(myLoans.map((l) => [l.loanId, l.totalOutstanding]));
+  const alreadyBorrowing = myLoans.length > 0;
+  const coverAvailable = state.broker?.coverAvailable;
+  // The effective cap is ~80% of raw cover headroom (cover backs principal plus accruing interest), so
+  // surface the discounted figure, not the raw ceiling, to avoid repeated tecLIMIT_EXCEEDED.
+  const coverHint = coverAvailable
+    ? `The broker's owner account signs this on your behalf. Requestable up to about ${(Number(coverAvailable) * 0.8).toFixed(2)} (limited by liquidity and first-loss cover).`
+    : "The broker's owner account signs this on your behalf. Bounded by vault liquidity and first-loss cover.";
   return (
     <div className="space-y-4">
       {credentialPending && (
@@ -449,6 +456,17 @@ function BorrowerActions({
           hint="The issuer granted you a credential — accept it to borrow."
           onAct={onAct}
         />
+      )}
+      {alreadyBorrowing ? (
+        <div className="space-y-1.5">
+          <Label>Request a loan</Label>
+          <p className="text-xs text-muted-foreground">You already have an active loan — repay it before requesting another.</p>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <ActionRow label="Request a loan" placeholder="Principal" cta="Request" action="request-loan" onAct={onAct} />
+          <p className="text-xs text-muted-foreground">{coverHint}</p>
+        </div>
       )}
       <SelectActionRow
         label="Repay a loan"
