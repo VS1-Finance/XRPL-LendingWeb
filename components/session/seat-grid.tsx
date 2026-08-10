@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ShieldCheck, Coins, Settings2, FileSignature, HandCoins, User, Bot, CircleDashed, Plus, Loader2 } from "lucide-react";
-import type { SeatSummary } from "@/lib/types";
+import type { SeatSummary, SessionState } from "@/lib/types";
 import type { SessionBalances } from "@/lib/engine-client";
 import { seatLabel } from "@/lib/roles";
 import { shortId } from "@/lib/format";
@@ -28,6 +28,7 @@ export function SeatGrid({
   onAddParticipant,
   balances,
   asset,
+  vault,
 }: {
   seats: SeatSummary[];
   me: string;
@@ -36,6 +37,7 @@ export function SeatGrid({
   onAddParticipant: (role: "depositor" | "borrower") => Promise<void>;
   balances: SessionBalances | null;
   asset: string;
+  vault: SessionState["vault"];
 }) {
   // Seats are grouped so the structure reads clearly: the protocol-fixed system roles, then each
   // pooled role with its own "add" affordance at the end of the group.
@@ -43,7 +45,7 @@ export function SeatGrid({
   const depositors = seats.filter((s) => s.role === "depositor");
   const borrowers = seats.filter((s) => s.role === "borrower");
 
-  const cardProps = { me, onClaim, onRelease, balances, asset };
+  const cardProps = { me, onClaim, onRelease, balances, asset, vault };
 
   return (
     <div className="space-y-5">
@@ -127,6 +129,7 @@ function SeatCard({
   onRelease,
   balances,
   asset,
+  vault,
 }: {
   seat: SeatSummary;
   me: string;
@@ -134,6 +137,7 @@ function SeatCard({
   onRelease: (seatKey: string) => void;
   balances: SessionBalances | null;
   asset: string;
+  vault: SessionState["vault"];
 }) {
   const key = seat.key;
   const Icon = ROLE_ICON[seat.role] ?? User;
@@ -157,7 +161,7 @@ function SeatCard({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <WalletModal seatKey={seat.key} label={seatLabel(seat)} balances={balances} asset={asset} />
+          <WalletModal seatKey={seat.key} label={seatLabel(seat)} balances={balances} asset={asset} vault={vault} />
           <OccupantBadge seat={seat} isMine={isMine} />
         </div>
       </div>

@@ -46,8 +46,8 @@ export interface LoanState {
 
 export interface SessionState {
   setupId: string;
-  vault: { assetsTotal: string; assetsAvailable: string; shareMptId?: string } | null;
-  broker: { coverAvailable: string } | null;
+  vault: { assetsTotal: string; assetsAvailable: string; shareMptId?: string; sharesTotal?: string; lossUnrealized?: string; scale?: number } | null;
+  broker: { coverAvailable: string; debtTotal?: string; debtMaximum?: string; managementFeeRate?: number; coverRateMinimum?: number; coverRateLiquidation?: number } | null;
   loans: LoanState[];
   seats: { key: string; occupant: OccupantKind; participant?: string }[];
   // Credential status per participant account, so the UI can show the accept action only where a
