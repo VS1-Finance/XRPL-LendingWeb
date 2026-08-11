@@ -20,8 +20,5 @@
     "hooks": "@/hooks"
   },
   "menuColor": "default",
-  "menuAccent": "subtle",
-  "registries": {
-    "@launchui": "https://www.launchuicomponents.com/r/{name}.json"
-  }
+  "menuAccent": "subtle"
 }
