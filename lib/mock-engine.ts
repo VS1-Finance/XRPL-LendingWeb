@@ -84,6 +84,12 @@ function clampInt(value: number | undefined, fallback: number, min: number, max:
   return Math.max(min, Math.min(max, n));
 }
 
+// A trimmed string value, or a fallback when it is blank or not a string. The provisioning request is
+// an untyped seam, so a non-string must not crash on .trim() (mirrors the live engine's coercion).
+function trimmedOr(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
 // Builds a fresh session from a provisioning request. Mirrors the engine's deployment: issuer, owner
 // (vault manager + originator), the requested depositor and borrower seats, a funded vault, and
 // broker cover. Bots occupy every seat until a human claims one.
@@ -119,9 +125,11 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
       asset,
       coverAmount: cover,
       paymentInterval: clampInt(req.paymentInterval, 60, 30, 86400),
-      scenario: req.scenario?.trim() || "mixed",
+      // Coerce defensively: the request comes over an untyped seam, so a non-string scenario/seed must
+      // not crash on .trim() (the live engine guards the same way).
+      scenario: trimmedOr(req.scenario, "mixed"),
       // Echo the seed so the Info tab renders one in mock mode; mirror the engine's seed-<hex> shape.
-      botSeed: req.botSeed?.trim() || `seed-${idFrom(next).toLowerCase()}`,
+      botSeed: trimmedOr(req.botSeed, `seed-${idFrom(next).toLowerCase()}`),
     },
   };
 
