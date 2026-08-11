@@ -35,6 +35,7 @@ export function SessionInfo({
               <Field icon={Shield} label="First-loss cover" value={coverDisplay(state)} />
               <Field icon={Clock} label="Payment interval" value={`${cfg.paymentInterval}s`} />
               <Field icon={Bot} label="Bot scenario" value={cfg.scenario} capitalize />
+              <Field icon={Bot} label="Bot seed" value={cfg.botSeed ?? "—"} mono />
               <div className="col-span-2">
                 <div className="mb-1 text-xs font-medium text-muted-foreground">Session id</div>
                 <div className="font-mono text-xs break-all">{summary.setupId}</div>

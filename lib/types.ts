@@ -16,6 +16,9 @@ export interface SessionConfig {
   coverAmount: string;
   paymentInterval: number;
   scenario: string;
+  // The effective bot seed the session ran with, for display and re-use. Optional: a mock or older
+  // engine may not supply it.
+  botSeed?: string;
 }
 
 export interface SessionSummary {

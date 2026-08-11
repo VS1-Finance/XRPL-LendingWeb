@@ -120,6 +120,8 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
       coverAmount: cover,
       paymentInterval: clampInt(req.paymentInterval, 60, 30, 86400),
       scenario: req.scenario?.trim() || "mixed",
+      // Echo the seed so the Info tab renders one in mock mode; mirror the engine's seed-<hex> shape.
+      botSeed: req.botSeed?.trim() || `seed-${idFrom(next).toLowerCase()}`,
     },
   };
 
