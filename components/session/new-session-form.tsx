@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { engine } from "@/lib/client";
 import type { ProvisionStep } from "@/lib/engine-client";
 import { TEMPLATES, GOALS, templateById, type Template, type Goal } from "@/lib/templates";
@@ -41,9 +42,12 @@ export function NewSessionForm() {
   const [permissioned, setPermissioned] = useState(true);
   const [form, setForm] = useState({
     label: "",
-    // XRP is the frictionless default — no issuer, no trust lines, deposit straight away. Any other
-    // value is treated as an issued currency the harness stands up its own issuer for.
-    asset: "XRP",
+    // XRP is the frictionless default — no issuer, no trust lines, deposit straight away. IOU is an
+    // issued currency the harness stands up its own issuer for; MPT is a Multi-Purpose Token the
+    // harness issues. iouCurrency/mptAssetScale are only meaningful for their matching kind.
+    assetKind: "XRP" as "XRP" | "IOU" | "MPT",
+    iouCurrency: "RLUSD",
+    mptAssetScale: "2",
     depositors: "2",
     borrowers: "1",
     cover: "2000",
@@ -71,8 +75,18 @@ export function NewSessionForm() {
     setPermissioned(t.values.permissioned);
     setScenario(t.values.scenario);
     // debtMax defaults to "" when the template omits it, so switching off an XRP preset clears the
-    // preset's ceiling rather than leaking it into the next (e.g. IOU) template.
-    setForm((f) => ({ ...f, asset: t.values.asset, depositors: t.values.depositors, borrowers: t.values.borrowers, cover: t.values.cover, debtMax: t.values.debtMax ?? "" }));
+    // preset's ceiling rather than leaking it into the next (e.g. IOU) template. Templates never set
+    // MPT (none do today), so the dropdown derives from the asset string: "XRP" -> XRP, anything else
+    // -> IOU with that currency code. mptAssetScale is left untouched (its default "2" stands).
+    setForm((f) => ({
+      ...f,
+      assetKind: t.values.asset.toUpperCase() === "XRP" ? "XRP" : "IOU",
+      iouCurrency: t.values.asset.toUpperCase() === "XRP" ? f.iouCurrency : t.values.asset,
+      depositors: t.values.depositors,
+      borrowers: t.values.borrowers,
+      cover: t.values.cover,
+      debtMax: t.values.debtMax ?? "",
+    }));
   }
 
   // The chosen goal — its template configures the market and its role is auto-claimed on arrival.
@@ -100,7 +114,11 @@ export function NewSessionForm() {
     if (!Number.isInteger(borrowers) || borrowers < 1) return "Borrowers must be a whole number of at least 1.";
     const cover = Number(form.cover);
     if (!form.cover.trim() || !Number.isFinite(cover) || cover <= 0) return "First-loss cover must be a positive amount.";
-    if (!form.asset.trim()) return "Vault asset is required (use XRP for a native vault).";
+    if (form.assetKind === "IOU" && !form.iouCurrency.trim()) return "Enter a currency code for the IOU vault (e.g. RLUSD).";
+    if (form.assetKind === "MPT") {
+      const s = Number(form.mptAssetScale);
+      if (form.mptAssetScale.trim() && (!Number.isInteger(s) || s < 0 || s > 15)) return "Asset scale must be a whole number from 0 to 15.";
+    }
     return null;
   }
 
@@ -119,7 +137,8 @@ export function NewSessionForm() {
       const session = await engine.createSession(
         {
           label: form.label.trim() || undefined,
-          asset: form.asset.trim() || undefined,
+          asset: form.assetKind === "IOU" ? (form.iouCurrency.trim() || undefined) : form.assetKind,
+          mptAssetScale: form.assetKind === "MPT" && form.mptAssetScale.trim() ? Number(form.mptAssetScale) : undefined,
           permissioned,
           depositors: Number(form.depositors),
           borrowers: Number(form.borrowers),
@@ -236,9 +255,26 @@ export function NewSessionForm() {
           <Field label="Label">
             <Input placeholder="e.g. demo" value={form.label} onChange={set("label")} />
           </Field>
-          <Field label="Vault asset" required doc={XLS_VAULT} hint="XRP is the frictionless default — no issuer or trust lines. Enter a 3-letter or hex currency code (e.g. USD) to use an issued token instead.">
-            <Input value={form.asset} onChange={set("asset")} />
+          <Field label="Vault asset" required doc={XLS_VAULT} hint="Choose the asset the vault holds. XRP is native; IOU is an issued currency the harness stands up an issuer for; MPT is a Multi-Purpose Token the harness issues.">
+            <Select value={form.assetKind} onValueChange={(v) => setForm((f) => ({ ...f, assetKind: v as typeof f.assetKind }))}>
+              <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="XRP">XRP — native</SelectItem>
+                <SelectItem value="IOU">IOU — issued currency</SelectItem>
+                <SelectItem value="MPT">MPT — Multi-Purpose Token</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
+          {form.assetKind === "IOU" && (
+            <Field label="Currency code" required hint="A 3-letter code (e.g. USD, RLUSD) or a 40-char hex code. The harness stands up its own issuer for it.">
+              <Input placeholder="RLUSD" value={form.iouCurrency} onChange={set("iouCurrency")} />
+            </Field>
+          )}
+          {form.assetKind === "MPT" && (
+            <Field label="Asset scale (decimals)" hint="Decimal places the MPT is issued at (0–15). 2 = cents-like precision. Amounts you enter elsewhere are in whole tokens; this sets on-ledger precision.">
+              <Input type="number" min={0} max={15} placeholder="2" value={form.mptAssetScale} onChange={set("mptAssetScale")} />
+            </Field>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <Field label="Depositors" required>
               <Input type="number" min={1} max={20} value={form.depositors} onChange={set("depositors")} />

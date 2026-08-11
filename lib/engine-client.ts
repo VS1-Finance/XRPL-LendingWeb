@@ -51,6 +51,9 @@ export interface SessionBalances {
 export interface ProvisionRequest {
   label?: string;
   asset?: string;
+  // Decimal places the MPT is issued at (0-15). Only meaningful when `asset` is "MPT"; ignored
+  // otherwise.
+  mptAssetScale?: number;
   // Whether the vault is permissioned (domain-gated, credentials required — the default) or public
   // (open, anyone may deposit). Omit or true for permissioned; false for public.
   permissioned?: boolean;
