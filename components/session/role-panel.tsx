@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { UserPlus, Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
-import type { SeatSummary, SessionState } from "@/lib/types";
+import type { SeatSummary, SessionConfig, SessionState } from "@/lib/types";
 import type { ActionResult } from "@/lib/engine-client";
 import { seatLabel, seatLabelForKey, roleDescription } from "@/lib/roles";
 import { txUrl } from "@/lib/client";
@@ -28,11 +28,15 @@ export function RolePanel({
   state,
   allSeats,
   onAct,
+  loanDefaults,
 }: {
   seat: SeatSummary | undefined;
   state: SessionState;
   allSeats: SeatSummary[];
   onAct: ActFn;
+  // Session-level default loan terms, so the originator sees the inherited values pre-filled. Optional:
+  // a session created without defaults, or a mock/older engine, omits it.
+  loanDefaults?: SessionConfig["loanDefaults"];
 }) {
   if (!seat) {
     return (
@@ -68,7 +72,7 @@ export function RolePanel({
         {seat.role === "borrower" && <BorrowerActions seat={seat} state={state} credentialPending={isCredentialPending(seat, state)} onAct={onAct} />}
         {seat.role === "credentialIssuer" && <CredentialIssuerActions allSeats={allSeats} onAct={onAct} />}
         {seat.role === "issuer" && <CurrencyIssuerActions />}
-        {seat.role === "owner" && <OwnerActions state={state} onAct={onAct} />}
+        {seat.role === "owner" && <OwnerActions state={state} onAct={onAct} loanDefaults={loanDefaults} />}
       </CardContent>
     </Card>
   );
@@ -557,14 +561,24 @@ function CredentialIssuerActions({ allSeats, onAct }: { allSeats: SeatSummary[];
 // fields on the new-session form. Term is optional: blank omits PaymentTotal so the ledger derives the
 // schedule, exactly as today. Defaults (50% / 60s / 60s / blank) reproduce the engine's current
 // defaults, so an untouched form originates a loan identical to before.
-function OriginateForm({ state, onAct }: { state: SessionState; onAct: ActFn }) {
+function OriginateForm({
+  state,
+  onAct,
+  defaults,
+}: {
+  state: SessionState;
+  onAct: ActFn;
+  defaults?: SessionConfig["loanDefaults"];
+}) {
   const choices = borrowerChoices(state.seats);
   const [borrower, setBorrower] = useState("");
   const [amount, setAmount] = useState("");
-  const [ratePct, setRatePct] = useState("50");
-  const [interval, setIntervalValue] = useState("60");
-  const [grace, setGrace] = useState("60");
-  const [term, setTerm] = useState("");
+  // Pre-fill from the session's default loan terms when present, so the originator sees the inherited
+  // value rather than the engine's baked-in defaults. interestRate is stored scaled (100000 = 100%).
+  const [ratePct, setRatePct] = useState(defaults?.interestRate !== undefined ? String(defaults.interestRate / 1000) : "50");
+  const [interval, setIntervalValue] = useState(defaults?.paymentInterval !== undefined ? String(defaults.paymentInterval) : "60");
+  const [grace, setGrace] = useState(defaults?.gracePeriod !== undefined ? String(defaults.gracePeriod) : "60");
+  const [term, setTerm] = useState(defaults?.paymentTotal !== undefined ? String(defaults.paymentTotal) : "");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<ActionResult | null>(null);
 
@@ -658,7 +672,15 @@ function OriginateForm({ state, onAct }: { state: SessionState; onAct: ActFn }) 
   );
 }
 
-function OwnerActions({ state, onAct }: { state: SessionState; onAct: ActFn }) {
+function OwnerActions({
+  state,
+  onAct,
+  loanDefaults,
+}: {
+  state: SessionState;
+  onAct: ActFn;
+  loanDefaults?: SessionConfig["loanDefaults"];
+}) {
   const activeLoans = state.loans.filter((l) => !l.defaulted && l.paymentRemaining > 0);
   // Only loans that are actually delinquent (overdue past grace) can be defaulted — offering others
   // would just earn a tecTOO_SOON rejection. The rest inform a hint about when they become defaultable.
@@ -683,7 +705,7 @@ function OwnerActions({ state, onAct }: { state: SessionState; onAct: ActFn }) {
       </Section>
 
       <Section title="Loan Originator" hint="Lend vault liquidity to borrowers, and default loans that fall delinquent.">
-        <OriginateForm state={state} onAct={onAct} />
+        <OriginateForm state={state} onAct={onAct} defaults={loanDefaults} />
         <p className="text-xs text-muted-foreground">
           Origination is bilateral — the borrower counter-signs the same transaction. Interest rate,
           payment interval, and grace period set the loan&apos;s terms; leave Term blank to let the

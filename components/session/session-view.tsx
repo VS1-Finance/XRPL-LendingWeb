@@ -221,7 +221,7 @@ export function SessionView({ setupId }: { setupId: string }) {
             <div className="lg:col-span-2">
               <section className="space-y-3 lg:sticky lg:top-20">
                 <SectionLabel>Act</SectionLabel>
-                <RolePanel seat={mySeat} state={state} allSeats={seats} onAct={act} />
+                <RolePanel seat={mySeat} state={state} allSeats={seats} onAct={act} loanDefaults={summary.config.loanDefaults} />
                 <WalletPanel balance={myBalance} asset={asset} vault={state.vault} />
                 {mySeat?.role === "owner" && <BrokerBook state={state} asset={asset} />}
               </section>

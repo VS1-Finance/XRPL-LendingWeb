@@ -36,7 +36,11 @@ const BASE_URL = process.env.NEXT_PUBLIC_ENGINE_URL ?? "/api/engine";
 
 // The engine's SessionSummary has no config field, but carries the real scenario and bot seed at the
 // top level (which our SessionSummary folds into `config`); everything else matches ours.
-export type EngineSummary = Omit<SessionSummary, "config"> & { scenario?: string; botSeed?: string };
+export type EngineSummary = Omit<SessionSummary, "config"> & {
+  scenario?: string;
+  botSeed?: string;
+  loanDefaults?: SessionConfig["loanDefaults"];
+};
 
 class HttpEngineError extends Error {
   constructor(
@@ -75,7 +79,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export function withConfig(summary: EngineSummary): SessionSummary {
   // The scenario and bot seed live under `config` in our shape, not at the top level, so lift them out
   // of the spread. `?? "mixed"` preserves the current display when the engine supplies no scenario.
-  const { scenario, botSeed, ...rest } = summary;
+  const { scenario, botSeed, loanDefaults, ...rest } = summary;
   return {
     ...rest,
     config: {
@@ -84,6 +88,7 @@ export function withConfig(summary: EngineSummary): SessionSummary {
       paymentInterval: 60,
       scenario: scenario ?? "mixed",
       botSeed,
+      loanDefaults,
     },
   };
 }
@@ -202,6 +207,10 @@ export const httpEngine: EngineClient = {
       debtMaximum: req.debtMaximum,
       scenario: req.scenario,
       botSeed: req.botSeed,
+      interestRatePercent: req.interestRatePercent,
+      paymentInterval: req.paymentInterval,
+      gracePeriod: req.gracePeriod,
+      paymentTotal: req.paymentTotal,
     };
     if (onStep) {
       const summary = await streamCreate(body, onStep);

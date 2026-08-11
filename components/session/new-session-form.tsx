@@ -54,6 +54,11 @@ export function NewSessionForm() {
     debtMax: "",
     // Optional bot seed. Blank → the engine generates one. Fixes the variant assignment only.
     botSeed: "",
+    // Default loan terms (optional). Applied at origination when the originator leaves a field blank.
+    defRate: "",
+    defInterval: "",
+    defGrace: "",
+    defTerm: "",
   });
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -125,6 +130,10 @@ export function NewSessionForm() {
           managementFeePercent: form.managementFee.trim() ? Number(form.managementFee) : undefined,
           debtMaximum: form.debtMax.trim() || undefined,
           botSeed: form.botSeed.trim() || undefined,
+          interestRatePercent: form.defRate.trim() ? Number(form.defRate) : undefined,
+          paymentInterval: form.defInterval.trim() ? Number(form.defInterval) : undefined,
+          gracePeriod: form.defGrace.trim() ? Number(form.defGrace) : undefined,
+          paymentTotal: form.defTerm.trim() ? Number(form.defTerm) : undefined,
         },
         (step) => setSteps((prev) => [...prev, step]),
       );
@@ -349,6 +358,30 @@ export function NewSessionForm() {
               Min cover rate is how much first-loss cover must back each loan — lower it to originate more
               against the same cover. Liquidation rate cannot exceed the min cover rate.
             </p>
+          </div>
+
+          {/* Default loan terms (optional) */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              Default loan terms
+              <a href={XLS_LENDING.href} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-0.5 text-xs font-normal text-muted-foreground hover:text-foreground">
+                {XLS_LENDING.label} <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Default interest rate (%)" hint="Applied to new loans when the originator leaves it blank. Blank uses the engine default (50%).">
+                <Input type="number" min={0} max={100} placeholder="50" value={form.defRate} onChange={set("defRate")} />
+              </Field>
+              <Field label="Default term (# payments)" hint="Blank lets the ledger derive the schedule.">
+                <Input type="number" min={1} placeholder="Ledger default" value={form.defTerm} onChange={set("defTerm")} />
+              </Field>
+              <Field label="Default payment interval (s)" hint="Minimum 60. Blank uses 60.">
+                <Input type="number" min={60} placeholder="60" value={form.defInterval} onChange={set("defInterval")} />
+              </Field>
+              <Field label="Default grace period (s)" hint="Must not exceed the interval. Blank uses 60.">
+                <Input type="number" min={0} placeholder="60" value={form.defGrace} onChange={set("defGrace")} />
+              </Field>
+            </div>
           </div>
 
           {/* Bot behavior */}

@@ -124,12 +124,21 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
     config: {
       asset,
       coverAmount: cover,
-      paymentInterval: clampInt(req.paymentInterval, 60, 30, 86400),
+      // The vault's own payment interval display defaults to 60s — distinct from the loan-default
+      // paymentInterval below, which is the originator's default term (req.paymentInterval).
+      paymentInterval: 60,
       // Coerce defensively: the request comes over an untyped seam, so a non-string scenario/seed must
       // not crash on .trim() (the live engine guards the same way).
       scenario: trimmedOr(req.scenario, "mixed"),
       // Echo the seed so the Info tab renders one in mock mode; mirror the engine's seed-<hex> shape.
       botSeed: trimmedOr(req.botSeed, `seed-${idFrom(next).toLowerCase()}`),
+      // Echo the session's default loan terms so the Info tab renders them in mock mode too.
+      loanDefaults: {
+        ...(typeof req.interestRatePercent === "number" ? { interestRate: Math.round(req.interestRatePercent * 1000) } : {}),
+        ...(typeof req.paymentInterval === "number" ? { paymentInterval: req.paymentInterval } : {}),
+        ...(typeof req.gracePeriod === "number" ? { gracePeriod: req.gracePeriod } : {}),
+        ...(typeof req.paymentTotal === "number" ? { paymentTotal: req.paymentTotal } : {}),
+      },
     },
   };
 
@@ -308,7 +317,8 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
         borrower: borrowerSeat?.address ?? addressFrom(next),
         principalOutstanding: String(amount),
         totalOutstanding: String(Math.round(amount * 1.0114 * 100) / 100),
-        paymentRemaining: mockTerm(req.params?.paymentTotal),
+        // A blank term falls back to the session's default loan term, mirroring the engine's merge.
+        paymentRemaining: mockTerm(req.params?.paymentTotal ?? session.summary.config.loanDefaults?.paymentTotal?.toString()),
         defaulted: false,
         // A freshly originated loan is not yet delinquent — mirrors the ledger's grace window before a
         // default is allowed. The mock uses a fixed window so the "defaultable in ~2m" hint appears.
@@ -333,7 +343,8 @@ function apply(session: Session, seat: SeatSummary, req: ActionRequest, next: ()
         borrower: seat.address,
         principalOutstanding: String(amount),
         totalOutstanding: String(Math.round(amount * 1.0114 * 100) / 100),
-        paymentRemaining: mockTerm(req.params?.paymentTotal),
+        // A blank term falls back to the session's default loan term, mirroring the engine's merge.
+        paymentRemaining: mockTerm(req.params?.paymentTotal ?? session.summary.config.loanDefaults?.paymentTotal?.toString()),
         defaulted: false,
         defaultableNow: false,
         defaultableInSeconds: 120,
