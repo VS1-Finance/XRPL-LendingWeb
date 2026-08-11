@@ -34,8 +34,9 @@ interface EngineLogRow {
 // direct engine URL can still be forced via NEXT_PUBLIC_ENGINE_URL for local, proxy-less debugging.
 const BASE_URL = process.env.NEXT_PUBLIC_ENGINE_URL ?? "/api/engine";
 
-// The engine's SessionSummary has no config field; everything else matches ours.
-type EngineSummary = Omit<SessionSummary, "config">;
+// The engine's SessionSummary has no config field, but carries the real scenario and bot seed at the
+// top level (which our SessionSummary folds into `config`); everything else matches ours.
+export type EngineSummary = Omit<SessionSummary, "config"> & { scenario?: string; botSeed?: string };
 
 class HttpEngineError extends Error {
   constructor(
@@ -71,14 +72,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // config block from the summary's own asset (never a hardcoded currency) and leave the values the
 // engine doesn't expose as best-effort. The Info tab reads live cover from state rather than this
 // coverAmount, so it always shows the real figure regardless of what's here.
-function withConfig(summary: EngineSummary): SessionSummary {
+export function withConfig(summary: EngineSummary): SessionSummary {
+  // The scenario and bot seed live under `config` in our shape, not at the top level, so lift them out
+  // of the spread. `?? "mixed"` preserves the current display when the engine supplies no scenario.
+  const { scenario, botSeed, ...rest } = summary;
   return {
-    ...summary,
+    ...rest,
     config: {
       asset: summary.asset,
       coverAmount: "0",
       paymentInterval: 60,
-      scenario: "mixed",
+      scenario: scenario ?? "mixed",
+      botSeed,
     },
   };
 }
@@ -196,6 +201,7 @@ export const httpEngine: EngineClient = {
       managementFeePercent: req.managementFeePercent,
       debtMaximum: req.debtMaximum,
       scenario: req.scenario,
+      botSeed: req.botSeed,
     };
     if (onStep) {
       const summary = await streamCreate(body, onStep);

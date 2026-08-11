@@ -52,6 +52,8 @@ export function NewSessionForm() {
     liquidationRate: "",
     managementFee: "",
     debtMax: "",
+    // Optional bot seed. Blank → the engine generates one. Fixes the variant assignment only.
+    botSeed: "",
   });
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -122,6 +124,7 @@ export function NewSessionForm() {
           liquidationRatePercent: form.liquidationRate.trim() ? Number(form.liquidationRate) : undefined,
           managementFeePercent: form.managementFee.trim() ? Number(form.managementFee) : undefined,
           debtMaximum: form.debtMax.trim() || undefined,
+          botSeed: form.botSeed.trim() || undefined,
         },
         (step) => setSteps((prev) => [...prev, step]),
       );
@@ -368,6 +371,9 @@ export function NewSessionForm() {
                 </button>
               ))}
             </div>
+            <Field label="Seed" hint="Fixes which behaviour each bot runs, so the same seed reproduces the same variant mix. Leave blank to generate one — it's shown on the session's Info tab to copy and re-use. Action timing still varies run to run.">
+              <Input placeholder="Auto-generated if blank" value={form.botSeed} onChange={set("botSeed")} />
+            </Field>
           </div>
         </div>
       </details>

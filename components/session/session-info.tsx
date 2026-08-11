@@ -35,6 +35,7 @@ export function SessionInfo({
               <Field icon={Shield} label="First-loss cover" value={coverDisplay(state)} />
               <Field icon={Clock} label="Payment interval" value={`${cfg.paymentInterval}s`} />
               <Field icon={Bot} label="Bot scenario" value={cfg.scenario} capitalize />
+              <Field icon={Bot} label="Bot seed" value={cfg.botSeed ?? "—"} mono />
               <div className="col-span-2">
                 <div className="mb-1 text-xs font-medium text-muted-foreground">Session id</div>
                 <div className="font-mono text-xs break-all">{summary.setupId}</div>
@@ -128,7 +129,9 @@ function Field({
       <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <Icon className="h-3.5 w-3.5" /> {label}
       </div>
-      <div className={`text-sm ${mono ? "font-mono" : ""} ${capitalize ? "capitalize" : ""}`}>{value}</div>
+      {/* mono values are ids/seeds that can be long and unbreakable — break them so a pasted seed can't
+          blow out the layout. */}
+      <div className={`text-sm ${mono ? "font-mono break-all" : ""} ${capitalize ? "capitalize" : ""}`}>{value}</div>
     </div>
   );
 }

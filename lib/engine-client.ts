@@ -59,6 +59,9 @@ export interface ProvisionRequest {
   coverAmount?: string;
   paymentInterval?: number;
   scenario?: string;
+  // Optional bot seed. Fixes the variant assignment; blank → the engine generates one. Only the
+  // behaviour mix is reproducible, not action timing.
+  botSeed?: string;
   // Broker configuration overrides (percentages and whole-unit amounts).
   coverRatePercent?: number;
   liquidationRatePercent?: number;
