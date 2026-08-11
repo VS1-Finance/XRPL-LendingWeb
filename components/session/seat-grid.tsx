@@ -40,8 +40,13 @@ export function SeatGrid({
   vault: SessionState["vault"];
 }) {
   // Seats are grouped so the structure reads clearly: the protocol-fixed system roles, then each
-  // pooled role with its own "add" affordance at the end of the group.
-  const system = seats.filter((s) => s.role === "issuer" || s.role === "credentialIssuer" || s.role === "owner");
+  // pooled role with its own "add" affordance at the end of the group. An XRP vault has no currency
+  // issuer — the issuer account exists only to hold the native asset, so it is not surfaced as a role
+  // seat (matching the role copy, which says an XRP vault has no currency issuer).
+  const isXrp = asset === "XRP";
+  const system = seats.filter(
+    (s) => (s.role === "issuer" && !isXrp) || s.role === "credentialIssuer" || s.role === "owner",
+  );
   const depositors = seats.filter((s) => s.role === "depositor");
   const borrowers = seats.filter((s) => s.role === "borrower");
 

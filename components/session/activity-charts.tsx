@@ -131,7 +131,9 @@ function LoanOutcomesChart({ entries }: { entries: LogEntry[] }) {
   } satisfies ChartConfig;
 
   const settled = entries
-    .filter((e) => e.ok)
+    // Market activity only — exclude provisioning (by: "system") so setup steps are not charted as
+    // participant actions.
+    .filter((e) => e.ok && e.by !== "system")
     .filter((e) => {
       const k = kindOf(e.action);
       return k === "originate" || k === "repay" || k === "default";
@@ -177,7 +179,8 @@ function FlowsChart({ entries, asset }: { entries: LogEntry[]; asset: string }) 
   } satisfies ChartConfig;
 
   const flows = entries
-    .filter((e) => e.ok)
+    // Market activity only — exclude provisioning (by: "system").
+    .filter((e) => e.ok && e.by !== "system")
     .filter((e) => {
       const k = kindOf(e.action);
       return k === "deposit" || k === "withdraw";

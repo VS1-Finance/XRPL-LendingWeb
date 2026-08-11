@@ -6,7 +6,7 @@ import type { SeatSummary, SessionConfig, SessionState } from "@/lib/types";
 import type { ActionResult } from "@/lib/engine-client";
 import { seatLabel, seatLabelForKey, roleDescription } from "@/lib/roles";
 import { txUrl } from "@/lib/client";
-import { shortId } from "@/lib/format";
+import { shortId, formatAmount } from "@/lib/format";
 import { ledgerMessage } from "@/lib/ledger-codes";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -416,7 +416,7 @@ function formatDuration(seconds: number): string {
 function loanChoices(loans: SessionState["loans"]): Choice[] {
   return loans.map((l) => ({
     value: l.loanId,
-    label: `${shortId(l.loanId, 6, 4)} · ${l.totalOutstanding} out`,
+    label: `${shortId(l.loanId, 6, 4)} · ${formatAmount(l.totalOutstanding)} out`,
   }));
 }
 
@@ -481,7 +481,7 @@ function BorrowerActions({
         amountPlaceholder="Amount"
         amountByChoice={outstandingByLoan}
         amountHint={(loanId) =>
-          outstandingByLoan[loanId] ? `Amount due: ${outstandingByLoan[loanId]} — pay at least this.` : undefined
+          outstandingByLoan[loanId] ? `Amount due: ${formatAmount(outstandingByLoan[loanId])} — pay at least this.` : undefined
         }
         cta="Repay"
         action="repay"

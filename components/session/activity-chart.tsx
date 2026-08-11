@@ -32,7 +32,10 @@ function kindOf(action: string): Kind | undefined {
 }
 
 export function ActivityChart({ entries, state }: { entries: LogEntry[]; state: SessionState | null }) {
-  const settled = entries.filter((e) => e.ok);
+  // Count market activity only — a human or bot participant acting. Provisioning steps (by: "system")
+  // set up the environment (e.g. seeding vault liquidity) and are not participant deposits, so counting
+  // them would show "Deposits N" before any depositor has acted.
+  const settled = entries.filter((e) => e.ok && e.by !== "system");
   const counts = new Map<Kind, number>();
   for (const e of settled) {
     const k = kindOf(e.action);
