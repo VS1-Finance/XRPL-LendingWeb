@@ -36,6 +36,18 @@ export function SessionInfo({
               <Field icon={Clock} label="Payment interval" value={`${cfg.paymentInterval}s`} />
               <Field icon={Bot} label="Bot scenario" value={cfg.scenario} capitalize />
               <Field icon={Bot} label="Bot seed" value={cfg.botSeed ?? "—"} mono />
+              {cfg.loanDefaults?.interestRate !== undefined && (
+                <Field icon={Coins} label="Default interest rate" value={`${(cfg.loanDefaults.interestRate / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 })}%`} />
+              )}
+              {cfg.loanDefaults?.paymentTotal !== undefined && (
+                <Field icon={Coins} label="Default term" value={`${cfg.loanDefaults.paymentTotal} payments`} />
+              )}
+              {cfg.loanDefaults?.paymentInterval !== undefined && (
+                <Field icon={Clock} label="Default payment interval" value={`${cfg.loanDefaults.paymentInterval}s`} />
+              )}
+              {cfg.loanDefaults?.gracePeriod !== undefined && (
+                <Field icon={Clock} label="Default grace period" value={`${cfg.loanDefaults.gracePeriod}s`} />
+              )}
               <div className="col-span-2">
                 <div className="mb-1 text-xs font-medium text-muted-foreground">Session id</div>
                 <div className="font-mono text-xs break-all">{summary.setupId}</div>

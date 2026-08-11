@@ -19,6 +19,9 @@ export interface SessionConfig {
   // The effective bot seed the session ran with, for display and re-use. Optional: a mock or older
   // engine may not supply it.
   botSeed?: string;
+  // Default loan terms applied at origination when a field is left blank (interestRate is the ledger's
+  // scaled integer). Optional: a session created without defaults, or a mock/older engine, omits it.
+  loanDefaults?: { interestRate?: number; paymentInterval?: number; gracePeriod?: number; paymentTotal?: number };
 }
 
 export interface SessionSummary {

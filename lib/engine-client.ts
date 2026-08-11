@@ -57,11 +57,16 @@ export interface ProvisionRequest {
   depositors?: number;
   borrowers?: number;
   coverAmount?: string;
-  paymentInterval?: number;
   scenario?: string;
   // Optional bot seed. Fixes the variant assignment; blank → the engine generates one. Only the
   // behaviour mix is reproducible, not action timing.
   botSeed?: string;
+  // Default loan terms (session-level). interestRatePercent is a human percent; interval/grace seconds;
+  // paymentTotal a payment count. Blank fields fall back to the engine defaults.
+  interestRatePercent?: number;
+  paymentInterval?: number;
+  gracePeriod?: number;
+  paymentTotal?: number;
   // Broker configuration overrides (percentages and whole-unit amounts).
   coverRatePercent?: number;
   liquidationRatePercent?: number;
