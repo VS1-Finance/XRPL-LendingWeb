@@ -75,6 +75,11 @@ export interface ProvisionRequest {
   liquidationRatePercent?: number;
   managementFeePercent?: number;
   debtMaximum?: string;
+  // Closed-ended vault lifecycle windows, in seconds. The engine validates: subscription ≥ 1; the
+  // pair's gap (investment window) within [180s, 30yr). Blank → the engine's config defaults
+  // (180s subscription / 1yr investment).
+  subscriptionWindowSeconds?: number;
+  investmentWindowSeconds?: number;
 }
 
 // One provisioning step reported while a session is being created: an on-ledger action, its result,
