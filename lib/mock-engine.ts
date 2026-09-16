@@ -22,6 +22,10 @@ interface Session {
   log: LogEntry[];
   seq: number;
   botsRunning: boolean;
+  // Ripple-epoch seconds anchoring the synthetic phase lifecycle, captured at provision time so the
+  // mock's phase advances with the clock exactly as the engine's does.
+  subscriptionDate: number;
+  redemptionDate: number;
   // Subjects with an ACCEPTED credential — only these may transact; a deposit or borrow from anyone
   // else is rejected with tecNO_AUTH, the enforcement the whole system demonstrates.
   credentialed: Set<string>;
@@ -142,6 +146,18 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
     },
   };
 
+  // Synthetic phase windows: honor the request's windows when given, else SHORT demo defaults so a
+  // reviewer sees all three phases without a backend. Anchored at provision time.
+  const nowSec = Math.floor(now() / 1000);
+  const subWindow = typeof req.subscriptionWindowSeconds === "number" && req.subscriptionWindowSeconds > 0
+    ? req.subscriptionWindowSeconds
+    : 60; // demo default: a 1-minute subscription window
+  const invWindow = typeof req.investmentWindowSeconds === "number" && req.investmentWindowSeconds > 0
+    ? req.investmentWindowSeconds
+    : 300; // demo default: a 5-minute investment window
+  const subscriptionDate = nowSec + subWindow;
+  const redemptionDate = subscriptionDate + invWindow;
+
   const state: SessionState = {
     setupId,
     vault: { assetsTotal: "0", assetsAvailable: "0", shareMptId: `000000${idFrom(next).toUpperCase()}${hashFrom(next).slice(0, 34)}`, sharesTotal: "0", lossUnrealized: "0", scale: 0 },
@@ -153,7 +169,7 @@ function provision(setupId: string, req: ProvisionRequest, seed: number): Sessio
 
   const credentialed = new Set<string>(seats.map((s) => s.address));
 
-  return { summary, state, log: [], seq: 0, botsRunning: false, credentialed, pending: new Set<string>(), shares: new Map<string, number>() };
+  return { summary, state, log: [], seq: 0, botsRunning: false, subscriptionDate, redemptionDate, credentialed, pending: new Set<string>(), shares: new Map<string, number>() };
 }
 
 function syncSeats(session: Session) {
@@ -507,6 +523,20 @@ export const mockEngine: EngineClient = {
             ? ("pending" as const)
             : ("none" as const),
       }));
+    // Derive the live phase from the synthetic dates and the mock clock, mirroring the engine's
+    // getVaultPhase: Subscription while now ≤ SubscriptionDate; Investment while now < RedemptionDate;
+    // Redemption otherwise. secondsUntilNextPhase counts down to the next boundary (null in Redemption,
+    // the terminal phase).
+    if (state.vault) {
+      const nowSec = Math.floor(now() / 1000);
+      const { subscriptionDate, redemptionDate } = session;
+      const phase = nowSec <= subscriptionDate ? "subscription" : nowSec < redemptionDate ? "investment" : "redemption";
+      state.vault.phase = phase;
+      state.vault.subscriptionDate = subscriptionDate;
+      state.vault.redemptionDate = redemptionDate;
+      state.vault.secondsUntilNextPhase =
+        phase === "subscription" ? subscriptionDate - nowSec : phase === "investment" ? redemptionDate - nowSec : null;
+    }
     return state;
   },
 
