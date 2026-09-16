@@ -12,6 +12,7 @@ import { useParticipant } from "@/lib/identity";
 import { ledgerMessage } from "@/lib/ledger-codes";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SessionHeader } from "./session-header";
+import { PhaseBanner } from "./phase-banner";
 import { StatBand } from "./stat-band";
 import { SeatGrid } from "./seat-grid";
 import { RolePanel, type ActFn } from "./role-panel";
@@ -180,6 +181,7 @@ export function SessionView({ setupId }: { setupId: string }) {
         onToggleBots={toggleBots}
       />
 
+      <PhaseBanner state={state} />
       <StatBand state={state} mySeat={mySeat} asset={currencyLabel(summary.asset)} />
 
       {/* The stat band above stays visible for both views; the tabs switch the working area. The

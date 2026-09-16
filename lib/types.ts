@@ -1,6 +1,8 @@
 // Types mirror the engine API shapes, so the UI can move from mock data to live calls without
 // changing its components.
 
+import type { VaultPhase } from "./phase";
+
 export type OccupantKind = "open" | "bot" | "human";
 
 export interface SeatSummary {
@@ -52,7 +54,21 @@ export interface LoanState {
 
 export interface SessionState {
   setupId: string;
-  vault: { assetsTotal: string; assetsAvailable: string; shareMptId?: string; sharesTotal?: string; lossUnrealized?: string; scale?: number } | null;
+  vault: {
+    assetsTotal: string;
+    assetsAvailable: string;
+    shareMptId?: string;
+    sharesTotal?: string;
+    lossUnrealized?: string;
+    scale?: number;
+    // Closed-ended vault lifecycle (populated by the engine's state-service). Optional so a
+    // non-closed-ended vault, an older engine, or the mock without phase still typecheck. `phase` is
+    // null when the vault is not closed-ended or its dates cannot be read.
+    phase?: VaultPhase | null;
+    subscriptionDate?: number; // ripple-epoch seconds
+    redemptionDate?: number; // ripple-epoch seconds
+    secondsUntilNextPhase?: number | null;
+  } | null;
   broker: { coverAvailable: string; debtTotal?: string; debtMaximum?: string; managementFeeRate?: number; coverRateMinimum?: number; coverRateLiquidation?: number } | null;
   loans: LoanState[];
   seats: { key: string; occupant: OccupantKind; participant?: string }[];

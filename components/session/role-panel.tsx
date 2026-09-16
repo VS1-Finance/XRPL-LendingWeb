@@ -14,6 +14,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { phaseAllows } from "@/lib/phase";
+
+// A short reason shown when an action is disabled because the vault's phase does not permit it. Returns
+// null when the action IS allowed in the current phase (nothing to explain). Mirrors the engine's gate
+// via phaseAllows; the copy explains the specific block.
+function phaseBlockReason(action: string, phase: import("@/lib/phase").VaultPhase | null): string | null {
+  if (phaseAllows(action, phase)) return null;
+  if (action === "deposit") return `Deposits are closed during the ${phase} phase.`;
+  if (action === "withdraw") return "Withdrawals pause during the investment phase.";
+  if (action === "originate" || action === "request-loan") {
+    return phase === "subscription"
+      ? "Lending opens when the subscription window closes."
+      : "The vault has closed for lending.";
+  }
+  return `Not allowed during the ${phase} phase.`;
+}
 
 // How the action surface reports back to the caller. Returns the ledger result so the panel can show
 // success (with a tx link) or the exact rejection code inline — the enforcement the demo is about.
@@ -68,7 +84,7 @@ export function RolePanel({
         <p className="rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
           {roleDescription(seat.role)}
         </p>
-        {seat.role === "depositor" && <DepositorActions credentialPending={isCredentialPending(seat, state)} onAct={onAct} />}
+        {seat.role === "depositor" && <DepositorActions state={state} credentialPending={isCredentialPending(seat, state)} onAct={onAct} />}
         {seat.role === "borrower" && <BorrowerActions seat={seat} state={state} credentialPending={isCredentialPending(seat, state)} onAct={onAct} />}
         {seat.role === "credentialIssuer" && <CredentialIssuerActions allSeats={allSeats} onAct={onAct} />}
         {seat.role === "issuer" && <CurrencyIssuerActions />}
@@ -365,7 +381,18 @@ function isCredentialPending(seat: SeatSummary, state: SessionState): boolean {
   return (state.credentials ?? []).some((c) => c.address === seat.address && c.status === "pending");
 }
 
-function DepositorActions({ credentialPending, onAct }: { credentialPending: boolean; onAct: ActFn }) {
+function DepositorActions({
+  state,
+  credentialPending,
+  onAct,
+}: {
+  state: SessionState;
+  credentialPending: boolean;
+  onAct: ActFn;
+}) {
+  const phase = state.vault?.phase ?? null;
+  const depositBlock = phaseBlockReason("deposit", phase);
+  const withdrawBlock = phaseBlockReason("withdraw", phase);
   return (
     <div className="space-y-4">
       {credentialPending && (
@@ -378,8 +405,16 @@ function DepositorActions({ credentialPending, onAct }: { credentialPending: boo
           onAct={onAct}
         />
       )}
-      <ActionRow label="Deposit" placeholder="Amount" cta="Deposit" action="deposit" onAct={onAct} />
-      <ActionRow label="Withdraw" placeholder="Amount" cta="Withdraw" action="withdraw" variant="outline" onAct={onAct} />
+      {depositBlock ? (
+        <p className="text-sm text-muted-foreground">{depositBlock}</p>
+      ) : (
+        <ActionRow label="Deposit" placeholder="Amount" cta="Deposit" action="deposit" onAct={onAct} />
+      )}
+      {withdrawBlock ? (
+        <p className="text-sm text-muted-foreground">{withdrawBlock}</p>
+      ) : (
+        <ActionRow label="Withdraw" placeholder="Amount" cta="Withdraw" action="withdraw" variant="outline" onAct={onAct} />
+      )}
       <p className="text-xs text-muted-foreground">
         Deposits are only accepted from a credentialed account — a deposit without an accepted
         credential is rejected on-ledger.
@@ -443,6 +478,8 @@ function BorrowerActions({
   const myLoans = state.loans.filter((l) => l.borrower === seat.address && !l.defaulted);
   const outstandingByLoan = Object.fromEntries(myLoans.map((l) => [l.loanId, l.totalOutstanding]));
   const alreadyBorrowing = myLoans.length > 0;
+  const phase = state.vault?.phase ?? null;
+  const requestBlock = phaseBlockReason("request-loan", phase);
   const coverAvailable = state.broker?.coverAvailable;
   // The effective cap is ~80% of raw cover headroom (cover backs principal plus accruing interest), so
   // surface the discounted figure, not the raw ceiling, to avoid repeated tecLIMIT_EXCEEDED.
@@ -461,7 +498,9 @@ function BorrowerActions({
           onAct={onAct}
         />
       )}
-      {alreadyBorrowing ? (
+      {requestBlock ? (
+        <p className="text-sm text-muted-foreground">{requestBlock}</p>
+      ) : alreadyBorrowing ? (
         <div className="space-y-1.5">
           <Label>Request a loan</Label>
           <p className="text-xs text-muted-foreground">You already have an active loan — repay it before requesting another.</p>
@@ -681,6 +720,8 @@ function OwnerActions({
   onAct: ActFn;
   loanDefaults?: SessionConfig["loanDefaults"];
 }) {
+  const phase = state.vault?.phase ?? null;
+  const originateBlock = phaseBlockReason("originate", phase);
   const activeLoans = state.loans.filter((l) => !l.defaulted && l.paymentRemaining > 0);
   // Only loans that are actually delinquent (overdue past grace) can be defaulted — offering others
   // would just earn a tecTOO_SOON rejection. The rest inform a hint about when they become defaultable.
@@ -705,7 +746,11 @@ function OwnerActions({
       </Section>
 
       <Section title="Loan Originator" hint="Lend vault liquidity to borrowers, and default loans that fall delinquent.">
-        <OriginateForm state={state} onAct={onAct} defaults={loanDefaults} />
+        {originateBlock ? (
+          <p className="text-sm text-muted-foreground">{originateBlock}</p>
+        ) : (
+          <OriginateForm state={state} onAct={onAct} defaults={loanDefaults} />
+        )}
         <p className="text-xs text-muted-foreground">
           Origination is bilateral — the borrower counter-signs the same transaction. Interest rate,
           payment interval, and grace period set the loan&apos;s terms; leave Term blank to let the
