@@ -63,6 +63,10 @@ export function NewSessionForm() {
     defInterval: "",
     defGrace: "",
     defTerm: "",
+    // Closed-ended vault windows (optional). Subscription window in MINUTES, investment term in DAYS —
+    // human units; converted to seconds on submit. Blank → the engine's defaults (3 min / 1 year).
+    subWindowMin: "",
+    invTermDays: "",
   });
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -119,6 +123,17 @@ export function NewSessionForm() {
       const s = Number(form.mptAssetScale);
       if (form.mptAssetScale.trim() && (!Number.isInteger(s) || s < 0 || s > 15)) return "Asset scale must be a whole number from 0 to 15.";
     }
+    if (form.subWindowMin.trim()) {
+      const m = Number(form.subWindowMin);
+      if (!Number.isFinite(m) || m <= 0) return "Subscription window must be a positive number of minutes.";
+    }
+    if (form.invTermDays.trim()) {
+      const d = Number(form.invTermDays);
+      if (!Number.isFinite(d) || d <= 0) return "Investment term must be a positive number of days.";
+      // The engine floor is 180s; a positive number of days always clears it, but a subscription-to-
+      // redemption gap must stay under 30 years — reject an absurd term up front.
+      if (d * 86400 >= 946_708_560) return "Investment term must be under 30 years.";
+    }
     return null;
   }
 
@@ -153,6 +168,8 @@ export function NewSessionForm() {
           paymentInterval: form.defInterval.trim() ? Number(form.defInterval) : undefined,
           gracePeriod: form.defGrace.trim() ? Number(form.defGrace) : undefined,
           paymentTotal: form.defTerm.trim() ? Number(form.defTerm) : undefined,
+          subscriptionWindowSeconds: form.subWindowMin.trim() ? Math.round(Number(form.subWindowMin) * 60) : undefined,
+          investmentWindowSeconds: form.invTermDays.trim() ? Math.round(Number(form.invTermDays) * 86400) : undefined,
         },
         (step) => setSteps((prev) => [...prev, step]),
       );
@@ -416,6 +433,19 @@ export function NewSessionForm() {
               </Field>
               <Field label="Default grace period (s)" hint="Must not exceed the interval. Blank uses 60.">
                 <Input type="number" min={0} placeholder="60" value={form.defGrace} onChange={set("defGrace")} />
+              </Field>
+            </div>
+          </div>
+
+          {/* Closed-ended vault windows (optional) */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Fund lifecycle</p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Subscription window" hint="Minutes deposits stay open. Blank → 3 min.">
+                <Input type="number" min={1} placeholder="3" value={form.subWindowMin} onChange={set("subWindowMin")} />
+              </Field>
+              <Field label="Investment term" hint="Days until redemption opens. Blank → 365.">
+                <Input type="number" min={1} placeholder="365" value={form.invTermDays} onChange={set("invTermDays")} />
               </Field>
             </div>
           </div>

@@ -212,6 +212,8 @@ export const httpEngine: EngineClient = {
       paymentInterval: req.paymentInterval,
       gracePeriod: req.gracePeriod,
       paymentTotal: req.paymentTotal,
+      subscriptionWindowSeconds: req.subscriptionWindowSeconds,
+      investmentWindowSeconds: req.investmentWindowSeconds,
     };
     if (onStep) {
       const summary = await streamCreate(body, onStep);
