@@ -7,7 +7,7 @@ import type {
   SessionBalances,
 } from "./engine-client";
 import type { LoanState, SeatSummary, SessionState, SessionSummary } from "./types";
-import { actionLabel, actionDetail } from "./log-format";
+import { actionLabel, actionDetail, logEntryParams } from "./log-format";
 import { currencyLabel } from "./format";
 
 // An in-memory implementation of the engine client. It is not the engine, but it behaves like it:
@@ -241,6 +241,7 @@ function record(
     ok: result.ok,
     hash: result.hash,
     detail: actionDetail(params, currencyLabel(session.summary.asset)),
+    params: logEntryParams(params),
   });
 }
 

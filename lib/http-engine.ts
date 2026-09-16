@@ -8,7 +8,7 @@ import type {
   SessionBalances,
 } from "./engine-client";
 import type { SessionConfig, SessionState, SessionSummary } from "./types";
-import { actionLabel, actionDetail } from "./log-format";
+import { actionLabel, actionDetail, logEntryParams } from "./log-format";
 import { currencyLabel } from "./format";
 
 // The action-log row shape returned by GET /sessions/:id/log — raw, unformatted.
@@ -264,6 +264,7 @@ export const httpEngine: EngineClient = {
         hash: r.hash,
         detail: actionDetail(r.params, assetLabel),
         amount,
+        params: logEntryParams(r.params),
       };
     });
   },

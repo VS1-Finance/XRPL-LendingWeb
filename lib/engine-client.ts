@@ -32,6 +32,9 @@ export interface LogEntry {
   hash?: string; // on-ledger transaction hash, present when it settled
   detail?: string; // e.g. "90,000 RLUSD"
   amount?: number; // raw numeric magnitude of the action (deposit/withdraw/originate/set-max), when present
+  // The raw action params (subject, loanId, principal, domain, credentialType, …), carried through for
+  // the Ledger Inspector's expandable detail. Present only when the action carried params.
+  params?: Record<string, string>;
 }
 
 export interface AccountBalance {
