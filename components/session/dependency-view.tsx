@@ -3,6 +3,7 @@
 import type { SessionState, SessionSummary } from "@/lib/types";
 import { seatLabelForKey } from "@/lib/roles";
 import { shortId } from "@/lib/format";
+import { phaseLabel } from "@/lib/phase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -38,7 +39,7 @@ export function DependencyView({ state, summary }: { state: SessionState; summar
                 title="Vault"
                 subtitle={`${vault.assetsTotal} total · ${vault.assetsAvailable} available`}
                 tone="sky"
-                badge={vault.phase ? <Badge variant="outline" className="text-[10px]">{vault.phase}</Badge> : undefined}
+                badge={vault.phase ? <Badge variant="outline" className="text-[10px]">{phaseLabel(vault.phase)}</Badge> : undefined}
               />
             ) : (
               <Empty>No vault</Empty>
