@@ -23,6 +23,7 @@ import { SessionInfo } from "./session-info";
 import { SessionNotFound } from "./session-not-found";
 import { WalletPanel } from "./wallet-panel";
 import { BrokerBook } from "./broker-book";
+import { DependencyView } from "./dependency-view";
 
 // The session orchestrator. It owns the participant identity and every call to the engine client:
 // loading the session, polling live state and the transaction log, claiming and releasing seats, and
@@ -198,6 +199,7 @@ export function SessionView({ setupId }: { setupId: string }) {
             )}
           </TabsTrigger>
           <TabsTrigger value="info">Info</TabsTrigger>
+          <TabsTrigger value="map">Map</TabsTrigger>
         </TabsList>
 
         <TabsContent value="workspace" className="mt-6">
@@ -239,6 +241,10 @@ export function SessionView({ setupId }: { setupId: string }) {
 
         <TabsContent value="info" className="mt-6">
           <SessionInfo summary={summary} state={state} participant={participant ?? "…"} />
+        </TabsContent>
+
+        <TabsContent value="map" className="mt-6">
+          <DependencyView state={state} summary={summary} />
         </TabsContent>
       </Tabs>
     </div>
