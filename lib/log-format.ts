@@ -54,3 +54,11 @@ export function actionDetail(params: Record<string, string> | undefined, asset =
 function short(value: string): string {
   return value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
 }
+
+// The raw action params to carry onto a LogEntry for the Ledger Inspector's expanded detail. Returns
+// undefined when there is nothing to show (no bag, or an empty bag), so a row with no params renders
+// clean rather than an empty object.
+export function logEntryParams(params: Record<string, string> | undefined): Record<string, string> | undefined {
+  if (!params || Object.keys(params).length === 0) return undefined;
+  return params;
+}
